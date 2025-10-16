@@ -2,7 +2,6 @@ import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
-import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -46,14 +45,7 @@ export class GraphQLServer {
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
 
-        // Development landing page with explicit HTTP endpoint
-        ApolloServerPluginLandingPageLocalDefault({
-          footer: false,
-          embed: {
-            endpointIsEditable: true,
-            runTelemetry: false,
-          },
-        }),
+        // Landing page handled by embedded Sandbox route (see setupMiddleware)
 
         // Custom plugins for logging and monitoring
         {
@@ -111,8 +103,8 @@ export class GraphQLServer {
         };
       },
 
-      // Introspection and playground settings
-      introspection: !config.isProduction,
+      // Introspection enabled for GraphQL clients (Postman, Insomnia, etc.)
+      introspection: true,
     });
   }
 
@@ -120,34 +112,9 @@ export class GraphQLServer {
    * Set up Express middleware stack
    */
   private setupMiddleware(): void {
-    // Security middleware with CSP configured for Apollo Sandbox
+    // Security middleware with relaxed CSP for Apollo Sandbox
     this.app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            "https://embeddable-sandbox.cdn.apollographql.com",
-            "https://apollo-server-landing-page.cdn.apollographql.com",
-          ],
-          styleSrc: [
-            "'self'",
-            "'unsafe-inline'",
-            "https://apollo-server-landing-page.cdn.apollographql.com",
-          ],
-          imgSrc: [
-            "'self'",
-            "data:",
-            "https://apollo-server-landing-page.cdn.apollographql.com",
-          ],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'self'", "https://sandbox.embed.apollographql.com"],
-        },
-      },
+      contentSecurityPolicy: false, // Disable CSP to allow Apollo Sandbox to work
       crossOriginEmbedderPolicy: false,
     }));
 
@@ -231,6 +198,38 @@ export class GraphQLServer {
         res.send('# Metrics not implemented yet\n');
       });
     }
+
+    // Embedded Sandbox page for browser (works with HTTP!)
+    this.app.get('/graphql', (req, res, next) => {
+      // If browser request (accepts HTML), serve embedded Sandbox
+      if (req.headers.accept?.includes('text/html')) {
+        return res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Apollo Sandbox</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #embedded-sandbox { width: 100%; height: 100vh; border: none; }
+  </style>
+</head>
+<body>
+  <div id="embedded-sandbox"></div>
+  <script src="https://embeddable-sandbox.cdn.apollographql.com/v2/embeddable-sandbox.umd.production.min.js"></script>
+  <script>
+    new window.EmbeddedSandbox({
+      target: '#embedded-sandbox',
+      initialEndpoint: 'http://${req.get('host')}/graphql',
+      includeCookies: false,
+    });
+  </script>
+</body>
+</html>
+        `.trim());
+      }
+      // Otherwise, continue to GraphQL handler
+      next();
+    });
 
     // GraphQL endpoint with context creation
     this.app.use('/graphql',
