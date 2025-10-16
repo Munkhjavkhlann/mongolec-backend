@@ -46,8 +46,14 @@ export class GraphQLServer {
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
 
-        // Development landing page
-        ApolloServerPluginLandingPageLocalDefault({ footer: false }),
+        // Development landing page with explicit HTTP endpoint
+        ApolloServerPluginLandingPageLocalDefault({
+          footer: false,
+          embed: {
+            endpointIsEditable: true,
+            runTelemetry: false,
+          },
+        }),
 
         // Custom plugins for logging and monitoring
         {
