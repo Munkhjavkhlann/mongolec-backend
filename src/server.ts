@@ -45,11 +45,11 @@ export class GraphQLServer {
       plugins: [
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
-        
-        // Development landing page
-        config.isDevelopment 
-          ? ApolloServerPluginLandingPageLocalDefault({ footer: false })
-          : ApolloServerPluginLandingPageLocalDefault({ footer: false, embed: true }),
+
+        // Development landing page only - disabled in production
+        ...(config.isDevelopment
+          ? [ApolloServerPluginLandingPageLocalDefault({ footer: false })]
+          : []),
 
         // Custom plugins for logging and monitoring
         {
