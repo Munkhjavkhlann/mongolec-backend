@@ -46,10 +46,8 @@ export class GraphQLServer {
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
 
-        // Development landing page only - disabled in production
-        ...(config.isDevelopment
-          ? [ApolloServerPluginLandingPageLocalDefault({ footer: false })]
-          : []),
+        // Development landing page
+        ApolloServerPluginLandingPageLocalDefault({ footer: false }),
 
         // Custom plugins for logging and monitoring
         {
@@ -116,9 +114,34 @@ export class GraphQLServer {
    * Set up Express middleware stack
    */
   private setupMiddleware(): void {
-    // Security middleware
+    // Security middleware with CSP configured for Apollo Sandbox
     this.app.use(helmet({
-      contentSecurityPolicy: config.isProduction ? undefined : false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            "https://embeddable-sandbox.cdn.apollographql.com",
+            "https://apollo-server-landing-page.cdn.apollographql.com",
+          ],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            "https://apollo-server-landing-page.cdn.apollographql.com",
+          ],
+          imgSrc: [
+            "'self'",
+            "data:",
+            "https://apollo-server-landing-page.cdn.apollographql.com",
+          ],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'self'", "https://sandbox.embed.apollographql.com"],
+        },
+      },
       crossOriginEmbedderPolicy: false,
     }));
 
