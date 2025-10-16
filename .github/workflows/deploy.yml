@@ -82,16 +82,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Copy docker-compose to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
-        source: "docker-compose.prod.yml"
-        target: "/opt/mongolec"
-
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -100,17 +90,44 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT || 22 }}
         script: |
+          # Create docker-compose.prod.yml
+          sudo tee /opt/mongolec/docker-compose.prod.yml > /dev/null <<'EOF'
+          version: '3.8'
+
+          services:
+            backend:
+              image: ghcr.io/munkhjavkhlann/mongolec-backend:latest
+              container_name: mongolec-backend
+              restart: unless-stopped
+              ports:
+                - "${PORT:-4000}:4000"
+              env_file:
+                - .env
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 40s
+              networks:
+                - mongolec-network
+
+          networks:
+            mongolec-network:
+              driver: bridge
+          EOF
+
           cd /opt/mongolec
 
           # Pull latest image
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker pull ghcr.io/munkhjavkhlann/mongolec-backend:latest
+          sudo docker pull ghcr.io/munkhjavkhlann/mongolec-backend:latest
 
           # Stop and remove old container
-          docker-compose -f docker-compose.prod.yml down || true
+          sudo docker-compose -f docker-compose.prod.yml down || true
 
           # Start new container
-          docker-compose -f docker-compose.prod.yml up -d
+          sudo docker-compose -f docker-compose.prod.yml up -d
 
           # Clean up old images
-          docker image prune -af
+          sudo docker image prune -af
