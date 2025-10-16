@@ -199,42 +199,7 @@ export class GraphQLServer {
       });
     }
 
-    // GraphiQL IDE for browser (self-hosted, works with HTTP!)
-    this.app.get('/graphql', (req, res, next) => {
-      // If browser request (accepts HTML), serve GraphiQL
-      if (req.headers.accept?.includes('text/html')) {
-        return res.send(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>GraphQL API</title>
-  <link rel="stylesheet" href="https://unpkg.com/graphiql@3/graphiql.min.css" />
-  <style>
-    body { margin: 0; height: 100vh; overflow: hidden; }
-    #graphiql { height: 100vh; }
-  </style>
-</head>
-<body>
-  <div id="graphiql"></div>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/graphiql@3/graphiql.min.js"></script>
-  <script>
-    const root = ReactDOM.createRoot(document.getElementById('graphiql'));
-    const fetcher = GraphiQL.createFetcher({
-      url: window.location.origin + '/graphql',
-    });
-    root.render(React.createElement(GraphiQL, { fetcher: fetcher }));
-  </script>
-</body>
-</html>
-        `.trim());
-      }
-      // Otherwise, continue to GraphQL handler
-      next();
-    });
-
-    // GraphQL endpoint with context creation
+    // GraphQL endpoint with context creation (Apollo's default landing page auto-serves)
     this.app.use('/graphql',
       expressMiddleware(this.apolloServer, {
         context: async ({ req, res }): Promise<GraphQLContext> => {
