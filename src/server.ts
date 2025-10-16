@@ -2,6 +2,7 @@ import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
+import { ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -45,7 +46,11 @@ export class GraphQLServer {
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
 
-        // Landing page handled by embedded Sandbox route (see setupMiddleware)
+        // Embedded Apollo Sandbox for production
+        ApolloServerPluginLandingPageProductionDefault({
+          embed: true,
+          includeCookies: true,
+        }),
 
         // Custom plugins for logging and monitoring
         {
