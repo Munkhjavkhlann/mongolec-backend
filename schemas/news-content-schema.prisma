@@ -1,0 +1,212 @@
+// Enhanced News CMS Schema with Block-Based Content
+// This extends our existing Content model with proper news features
+
+// News Article Model (Enhanced Content)
+model NewsArticle {
+  id          String      @id @default(cuid())
+  
+  // Basic Information
+  title       Json        // {"en": "Title", "mn": "Гарчиг"}
+  slug        String      @unique
+  excerpt     Json?       // {"en": "Excerpt", "mn": "Товчлол"}
+  
+  // News-Specific Fields
+  subtitle    Json?       // {"en": "Subtitle", "mn": "Дэд гарчиг"}
+  byline      Json?       // {"en": "Author byline", "mn": "Зохиогчийн мэдээлэл"}
+  
+  // Content Structure (Block-Based)
+  blocks      Json        // Array of content blocks in both languages
+  /*
+  Example blocks structure:
+  {
+    "en": [
+      {
+        "id": "block1",
+        "type": "paragraph",
+        "data": { "text": "This is the first paragraph..." }
+      },
+      {
+        "id": "block2", 
+        "type": "image",
+        "data": { 
+          "url": "/uploads/image.jpg",
+          "caption": "Image caption",
+          "alt": "Alt text"
+        }
+      },
+      {
+        "id": "block3",
+        "type": "heading",
+        "data": { "text": "Section Heading", "level": 2 }
+      }
+    ],
+    "mn": [
+      // Same structure but in Mongolian
+    ]
+  }
+  */
+  
+  // Media
+  featuredImageId String?
+  featuredImage   Media?      @relation("FeaturedImage", fields: [featuredImageId], references: [id])
+  mediaGallery    ArticleMedia[]
+  
+  // Categorization
+  categoryId  String?
+  category    NewsCategory? @relation(fields: [categoryId], references: [id])
+  tags        ArticleTag[]
+  
+  // News Metadata
+  location    Json?       // {"en": "Location", "mn": "Байршил"}
+  source      String?     // News source if external
+  priority    NewsPriority @default(NORMAL)
+  isBreaking  Boolean     @default(false)
+  isFeatured  Boolean     @default(false)
+  
+  // SEO & Social
+  metaTitle       Json?   // {"en": "SEO Title", "mn": "SEO Гарчиг"}
+  metaDescription Json?   // {"en": "SEO Description", "mn": "SEO Тайлбар"}
+  socialImage     String? // Open Graph image
+  keywords        Json?   // {"en": ["keyword1"], "mn": ["түлхүүр_үг1"]}
+  
+  // Publishing
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  
+  // Multi-tenant & Timestamps
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User        @relation("ArticleCreator", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?       @relation("ArticleUpdater", fields: [updatedById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("news_articles")
+}
+
+// News Categories
+model NewsCategory {
+  id          String   @id @default(cuid())
+  name        Json     // {"en": "Politics", "mn": "Улс төр"}
+  slug        String
+  description Json?    // {"en": "Description", "mn": "Тайлбар"}
+  color       String?  // Hex color for UI
+  icon        String?  // Icon name
+  parentId    String?
+  parent      NewsCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    NewsCategory[] @relation("CategoryHierarchy")
+  
+  // Relations
+  articles    NewsArticle[]
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("news_categories")
+}
+
+// Enhanced Media Model for News
+model NewsMedia {
+  id              String   @id @default(cuid())
+  filename        String
+  originalName    String
+  path            String
+  url             String
+  mimeType        String
+  size            Int
+  
+  // Image-specific
+  width           Int?
+  height          Int?
+  alt             Json?    // {"en": "Alt text", "mn": "Зургийн тайлбар"}
+  caption         Json?    // {"en": "Caption", "mn": "Тайлбар"}
+  
+  // News-specific metadata
+  photographer    String?  // Photo credit
+  agency          String?  // News agency
+  location        Json?    // {"en": "Photo location", "mn": "Зургийн байршил"}
+  
+  // Relations
+  featuredInArticles NewsArticle[] @relation("FeaturedImage")
+  articleGallery     ArticleMedia[]
+  
+  // Multi-tenant
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedById    String
+  uploadedBy      User     @relation(fields: [uploadedById], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@map("news_media")
+}
+
+// Junction table for article media gallery
+model ArticleMedia {
+  id        String @id @default(cuid())
+  articleId String
+  mediaId   String
+  order     Int    @default(0)
+  type      MediaType @default(GALLERY)
+
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  media     NewsMedia   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, mediaId])
+  @@map("article_media")
+}
+
+// Tags for articles
+model ArticleTag {
+  id        String @id @default(cuid())
+  articleId String
+  tagId     String
+
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, tagId])
+  @@map("article_tags")
+}
+
+// Enums
+enum NewsPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  BREAKING
+}
+
+enum MediaType {
+  FEATURED
+  GALLERY
+  INLINE
+  ATTACHMENT
+}
+
+// Block Types for Content Editor
+/*
+Supported Block Types:
+- paragraph: Regular text content
+- heading: H1-H6 headings
+- image: Single image with caption
+- gallery: Multiple images
+- video: Embedded video (YouTube, Vimeo, etc.)
+- quote: Blockquote with attribution
+- list: Ordered/unordered lists
+- embed: Social media embeds, maps, etc.
+- divider: Section separators
+- code: Code blocks
+- table: Data tables
+- callout: Highlighted information boxes
+*/

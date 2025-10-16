@@ -1,0 +1,178 @@
+{
+  "name": "mongolec-storage-infrastructure",
+  "version": "1.0.0",
+  "description": "Multi-tenant storage infrastructure with comprehensive file management",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "worker:images": "ts-node src/workers/imageProcessor.ts",
+    "worker:backup": "ts-node src/workers/backupWorker.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "studio": "prisma studio",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "setup:local": "npm run docker:dev && npm run migrate && npm run generate"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "typescript": "^5.0.0",
+    "@prisma/client": "^5.0.0",
+    "prisma": "^5.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "winston": "^3.8.2",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^6.7.1",
+    "multer": "^1.4.5",
+    
+    "sharp": "^0.32.0",
+    "bull": "^4.11.3",
+    "ioredis": "^5.3.2",
+    "minio": "^7.1.3",
+    
+    "@aws-sdk/client-s3": "^3.370.0",
+    "@aws-sdk/s3-request-presigner": "^3.370.0",
+    "@aws-sdk/client-cloudfront": "^3.370.0",
+    "@aws-sdk/client-cloudwatch": "^3.370.0",
+    
+    "zod": "^3.21.4",
+    "joi": "^17.9.2",
+    "lru-cache": "^10.0.0",
+    "compression": "^1.7.4",
+    "dotenv": "^16.3.1",
+    "mime-types": "^2.1.35",
+    "uuid": "^9.0.0",
+    
+    "bull-board": "^2.1.3",
+    "express-prometheus-middleware": "^1.2.0",
+    "prom-client": "^14.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.0.0",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/bcryptjs": "^2.4.2",
+    "@types/multer": "^1.4.7",
+    "@types/compression": "^1.7.2",
+    "@types/mime-types": "^2.1.1",
+    "@types/uuid": "^9.0.2",
+    "@types/bull": "^4.10.0",
+    
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3",
+    "@types/jest": "^29.5.2",
+    "@types/supertest": "^2.0.12",
+    "ts-jest": "^29.1.0",
+    
+    "nodemon": "^2.0.22",
+    "ts-node": "^10.9.1",
+    "eslint": "^8.43.0",
+    "@typescript-eslint/eslint-plugin": "^5.60.0",
+    "@typescript-eslint/parser": "^5.60.0",
+    "prettier": "^2.8.8",
+    
+    "docker-compose": "^0.24.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "multi-tenant",
+    "storage",
+    "file-management", 
+    "aws-s3",
+    "image-processing",
+    "cdn",
+    "backup",
+    "cost-optimization",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "Mongolec Development Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mongolec/storage-infrastructure.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mongolec/storage-infrastructure/issues"
+  },
+  "homepage": "https://github.com/mongolec/storage-infrastructure#readme",
+  
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": ["**/__tests__/**/*.test.ts"],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/tests/**/*"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"]
+  },
+  
+  "eslintConfig": {
+    "parser": "@typescript-eslint/parser",
+    "plugins": ["@typescript-eslint"],
+    "extends": [
+      "eslint:recommended",
+      "@typescript-eslint/recommended"
+    ],
+    "rules": {
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/explicit-function-return-type": "warn",
+      "no-console": "warn"
+    }
+  },
+  
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2
+  },
+  
+  "config": {
+    "storage": {
+      "provider": "aws-s3",
+      "maxFileSize": "100MB",
+      "allowedTypes": ["image", "document", "video", "audio", "archive"],
+      "imageProcessing": {
+        "enabled": true,
+        "variants": ["thumbnail", "small", "medium", "large"],
+        "quality": 85,
+        "format": "webp"
+      },
+      "cdn": {
+        "enabled": true,
+        "caching": {
+          "images": "7d",
+          "documents": "1h",
+          "media": "1d"
+        }
+      },
+      "backup": {
+        "enabled": true,
+        "schedule": "daily",
+        "retention": {
+          "daily": 30,
+          "weekly": 12,
+          "monthly": 12
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,286 @@
+# Docker Compose for Local Development
+# Multi-tenant storage infrastructure with MinIO, Redis, and PostgreSQL
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: mongolec-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mongolec_dev
+      POSTGRES_USER: mongolec
+      POSTGRES_PASSWORD: mongolec_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgresql-schema-comprehensive.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./database-migrations.sql:/docker-entrypoint-initdb.d/02-migrations.sql
+      - ./sample-data-test-scenarios.sql:/docker-entrypoint-initdb.d/03-sample-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mongolec -d mongolec_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+
+  # Redis for Caching and Queues
+  redis:
+    image: redis:7-alpine
+    container_name: mongolec-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+
+  # MinIO for S3-Compatible Storage
+  minio:
+    image: minio/minio:latest
+    container_name: mongolec-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console UI
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_REGION: us-east-1
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+
+  # MinIO Client for Setup
+  minio-setup:
+    image: minio/mc:latest
+    container_name: mongolec-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: |
+      /bin/bash -c "
+      echo 'Setting up MinIO buckets and policies...'
+      
+      # Configure MinIO client
+      mc alias set myminio http://minio:9000 minioadmin minioadmin
+      
+      # Create buckets
+      mc mb myminio/mongolec-dev --ignore-existing
+      mc mb myminio/backups --ignore-existing  
+      mc mb myminio/temp-uploads --ignore-existing
+      mc mb myminio/processed-images --ignore-existing
+      
+      # Set public policy for public files
+      mc anonymous set download myminio/mongolec-dev/tenants/*/public/*
+      
+      # Create sample tenant directories
+      mc cp /dev/null myminio/mongolec-dev/tenants/sample-tenant-1/.keep
+      mc cp /dev/null myminio/mongolec-dev/tenants/sample-tenant-2/.keep
+      mc cp /dev/null myminio/mongolec-dev/tenants/sample-tenant-3/.keep
+      
+      echo 'MinIO setup complete!'
+      "
+    networks:
+      - mongolec-network
+
+  # Local CDN Simulation with Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: mongolec-cdn
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf
+      - ./nginx/mime.types:/etc/nginx/mime.types
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+
+  # Image Processing Worker
+  image-processor:
+    build: 
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: mongolec-image-processor
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      STORAGE_PROVIDER: minio
+      POSTGRES_URL: postgresql://mongolec:mongolec_dev_password@postgres:5432/mongolec_dev
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - /app/node_modules
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+
+  # API Server (Main Application)
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mongolec-api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      
+      # Database
+      POSTGRES_URL: postgresql://mongolec:mongolec_dev_password@postgres:5432/mongolec_dev
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      
+      # Storage
+      STORAGE_PROVIDER: minio
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: mongolec-dev
+      S3_BUCKET: mongolec-dev
+      
+      # CDN
+      CDN_BASE_URL: http://localhost:8080
+      
+      # JWT
+      JWT_SECRET: development_jwt_secret_key_change_in_production
+      JWT_REFRESH_SECRET: development_refresh_secret_key_change_in_production
+      
+      # Other
+      LOG_LEVEL: debug
+      CORS_ORIGIN: "http://localhost:3001,http://localhost:3002,http://localhost:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - /app/node_modules
+    networks:
+      - mongolec-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development Tools Container
+  dev-tools:
+    image: node:18-alpine
+    container_name: mongolec-dev-tools
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: |
+      sh -c "
+      echo 'Development tools container ready!'
+      echo 'Run: docker exec -it mongolec-dev-tools sh'
+      echo 'Available commands:'
+      echo '  - npm run migrate'
+      echo '  - npm run seed'
+      echo '  - npm run test'
+      echo '  - npx prisma studio'
+      tail -f /dev/null
+      "
+    networks:
+      - mongolec-network
+
+  # Monitoring and Observability
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: mongolec-redis-ui
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - mongolec-network
+
+  # Database Admin (PgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mongolec-pgadmin
+    ports:
+      - "8082:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@mongolec.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - mongolec-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  nginx_cache:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  mongolec-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

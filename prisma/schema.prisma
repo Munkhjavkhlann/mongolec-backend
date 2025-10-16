@@ -1,0 +1,712 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// TENANT MANAGEMENT
+// ================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  domain    String?  @unique
+  status    TenantStatus @default(ACTIVE)
+  plan      TenantPlan   @default(FREE)
+  config    Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  users       User[]
+  roles       Role[]
+  permissions Permission[]
+  content     Content[]
+  media       Media[]
+  auditLogs   AuditLog[]
+  tags        Tag[]
+  settings    Setting[]
+  apiTokens   ApiToken[]
+  webhooks    Webhook[]
+  newsCategories NewsCategory[]
+  newsArticles   NewsArticle[]
+  merchCategories MerchCategory[]
+  merchProducts   MerchProduct[]
+  
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  ARCHIVED
+}
+
+enum TenantPlan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+// ================================
+// USER MANAGEMENT & AUTHENTICATION
+// ================================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String
+  firstName   String
+  lastName    String
+  password    String
+  isActive    Boolean  @default(true)
+  emailVerified Boolean @default(false)
+  lastLoginAt DateTime?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // User roles (many-to-many)
+  roles       UserRole[]
+  
+  // Content relations
+  createdContent Content[] @relation("ContentCreator")
+  updatedContent Content[] @relation("ContentUpdater")
+  
+  // Media relations
+  uploadedMedia Media[]
+  
+  // Audit log relations
+  auditLogs   AuditLog[]
+  
+  // API token relations
+  apiTokens   ApiToken[]
+  
+  // News relations
+  createdNewsArticles NewsArticle[] @relation("NewsArticleCreator")
+  updatedNewsArticles NewsArticle[] @relation("NewsArticleUpdater")
+
+  // Merch relations
+  createdMerchProducts MerchProduct[] @relation("MerchProductCreator")
+  updatedMerchProducts MerchProduct[] @relation("MerchProductUpdater")
+
+  @@unique([email, tenantId])
+  @@map("users")
+}
+
+// ================================
+// ROLE-BASED ACCESS CONTROL (RBAC)
+// ================================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Role permissions (many-to-many)
+  permissions RolePermission[]
+  
+  // User roles (many-to-many)
+  users       UserRole[]
+
+  @@unique([name, tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String
+  resource    String
+  action      String
+  conditions  Json     @default("{}")
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Role permissions (many-to-many)
+  roles       RolePermission[]
+
+  @@unique([resource, action, tenantId])
+  @@map("permissions")
+}
+
+// Junction tables for many-to-many relationships
+model UserRole {
+  id       String @id @default(cuid())
+  userId   String
+  roleId   String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+  assignedAt   DateTime @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ================================
+// CONTENT MANAGEMENT SYSTEM
+// ================================
+
+model Content {
+  id          String      @id @default(cuid())
+  title       Json        // {"en": "Title", "mn": "Гарчиг"}
+  slug        String
+  type        ContentType @default(PAGE)
+  status      ContentStatus @default(DRAFT)
+  content     Json        // {"en": "Content", "mn": "Агуулга"}
+  excerpt     Json?       // {"en": "Excerpt", "mn": "Товчлол"}
+  featuredImage String?
+  metadata    Json        @default("{}")
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Content authoring
+  createdById String
+  createdBy   User        @relation("ContentCreator", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?       @relation("ContentUpdater", fields: [updatedById], references: [id])
+  
+  // Content relationships
+  parentId    String?
+  parent      Content?    @relation("ContentHierarchy", fields: [parentId], references: [id])
+  children    Content[]   @relation("ContentHierarchy")
+  
+  // Content media
+  media       ContentMedia[]
+  
+  // Content tags (many-to-many)
+  tags        ContentTag[]
+
+  @@unique([slug, tenantId])
+  @@map("content")
+}
+
+enum ContentType {
+  PAGE
+  POST
+  ARTICLE
+  PRODUCT
+  CATEGORY
+  CUSTOM
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  SCHEDULED
+}
+
+// ================================
+// MEDIA MANAGEMENT
+// ================================
+
+model Media {
+  id          String     @id @default(cuid())
+  filename    String
+  originalName String
+  path        String
+  url         String
+  mimeType    String
+  size        Int
+  width       Int?
+  height      Int?
+  alt         Json?       // {"en": "Alt text", "mn": "Зургийн тайлбар"}
+  description Json?       // {"en": "Description", "mn": "Тодорхойлолт"}
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Media uploader
+  uploadedById String
+  uploadedBy   User       @relation(fields: [uploadedById], references: [id])
+  
+  // Content associations
+  content     ContentMedia[]
+  
+  // News relations
+  featuredInNewsArticles NewsArticle[] @relation("NewsFeaturedImage")
+
+  @@map("media")
+}
+
+// Junction table for content-media relationships
+model ContentMedia {
+  id        String @id @default(cuid())
+  contentId String
+  mediaId   String
+  order     Int    @default(0)
+  type      MediaType @default(ATTACHMENT)
+
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  media     Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, mediaId])
+  @@map("content_media")
+}
+
+enum MediaType {
+  FEATURED
+  GALLERY
+  ATTACHMENT
+  INLINE
+}
+
+// ================================
+// TAXONOMY SYSTEM
+// ================================
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        Json     // {"en": "Tag Name", "mn": "Шошгоны нэр"}
+  slug        String
+  description Json?    // {"en": "Description", "mn": "Тодорхойлолт"}
+  color       String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Content associations
+  content     ContentTag[]
+  
+  // News relations
+  newsArticles NewsArticleTag[]
+
+  @@unique([slug, tenantId])
+  @@map("tags")
+}
+
+// Junction table for content-tag relationships
+model ContentTag {
+  id        String @id @default(cuid())
+  contentId String
+  tagId     String
+
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, tagId])
+  @@map("content_tags")
+}
+
+// ================================
+// AUDIT & LOGGING
+// ================================
+
+model AuditLog {
+  id          String     @id @default(cuid())
+  entity      String
+  entityId    String
+  action      AuditAction
+  changes     Json       @default("{}")
+  metadata    Json       @default("{}")
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // User who performed the action
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  LOGIN
+  LOGOUT
+  BULK_UPDATE
+  BULK_DELETE
+}
+
+// ================================
+// SETTINGS & CONFIGURATION
+// ================================
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String
+  value       Json
+  type        SettingType @default(JSON)
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([key, tenantId])
+  @@map("settings")
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  ARRAY
+}
+
+// ================================
+// API TOKENS & WEBHOOKS
+// ================================
+
+model ApiToken {
+  id          String     @id @default(cuid())
+  name        String
+  token       String     @unique
+  permissions Json       @default("[]")
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Created by user
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+
+  @@map("api_tokens")
+}
+
+model Webhook {
+  id          String       @id @default(cuid())
+  name        String
+  url         String
+  events      Json         @default("[]")
+  secret      String?
+  isActive    Boolean      @default(true)
+  retryPolicy Json         @default("{}")
+  metadata    Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Multi-tenant relations
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Webhook deliveries
+  deliveries  WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          String             @id @default(cuid())
+  webhookId   String
+  event       String
+  payload     Json
+  status      WebhookDeliveryStatus @default(PENDING)
+  responseCode Int?
+  responseBody String?
+  error       String?
+  deliveredAt DateTime?
+  createdAt   DateTime           @default(now())
+
+  webhook     Webhook            @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+// ================================
+// ENHANCED NEWS CMS MODELS
+// ================================
+
+// News Categories for organizing articles
+model NewsCategory {
+  id          String   @id @default(cuid())
+  name        Json     // {"en": "Politics", "mn": "Улс төр"}
+  slug        String
+  description Json?    // {"en": "Description", "mn": "Тайлбар"}
+  color       String?  // Hex color for UI
+  icon        String?  // Icon name
+  parentId    String?
+  parent      NewsCategory? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    NewsCategory[] @relation("CategoryHierarchy")
+  
+  // Relations
+  articles    NewsArticle[]
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("news_categories")
+}
+
+// Enhanced News Article Model with Block-Based Content
+model NewsArticle {
+  id          String      @id @default(cuid())
+  
+  // Basic Information
+  title       Json        // {"en": "Title", "mn": "Гарчиг"}
+  slug        String
+  excerpt     Json?       // {"en": "Excerpt", "mn": "Товчлол"}
+  
+  // News-Specific Fields
+  subtitle    Json?       // {"en": "Subtitle", "mn": "Дэд гарчиг"}
+  byline      Json?       // {"en": "Author byline", "mn": "Зохиогчийн мэдээлэл"}
+  
+  // Content Structure (Block-Based)
+  blocks      Json        // Array of content blocks in both languages
+  
+  // Media
+  featuredImageId String?
+  featuredImage   Media?      @relation("NewsFeaturedImage", fields: [featuredImageId], references: [id])
+  
+  // Categorization
+  categoryId  String?
+  category    NewsCategory? @relation(fields: [categoryId], references: [id])
+  tags        NewsArticleTag[]
+  
+  // News Metadata
+  location    Json?       // {"en": "Location", "mn": "Байршил"}
+  source      String?     // News source if external
+  priority    NewsPriority @default(NORMAL)
+  isBreaking  Boolean     @default(false)
+  isFeatured  Boolean     @default(false)
+  
+  // SEO & Social
+  metaTitle       Json?   // {"en": "SEO Title", "mn": "SEO Гарчиг"}
+  metaDescription Json?   // {"en": "SEO Description", "mn": "SEO Тайлбар"}
+  socialImage     String? // Open Graph image
+  keywords        Json?   // {"en": ["keyword1"], "mn": ["түлхүүр_үг1"]}
+  
+  // Publishing
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  
+  // Multi-tenant & Timestamps
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User        @relation("NewsArticleCreator", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?       @relation("NewsArticleUpdater", fields: [updatedById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("news_articles")
+}
+
+// Junction table for article tags
+model NewsArticleTag {
+  id        String @id @default(cuid())
+  articleId String
+  tagId     String
+
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, tagId])
+  @@map("news_article_tags")
+}
+
+// News Priority Enum
+enum NewsPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  BREAKING
+}
+
+// ================================
+// MERCHANDISE MANAGEMENT SYSTEM
+// ================================
+
+// Merchandise Categories
+model MerchCategory {
+  id          String   @id @default(cuid())
+  name        Json     // {"en": "T-Shirts", "mn": "Цамц"}
+  slug        String
+  description Json?    // {"en": "Description", "mn": "Тайлбар"}
+  color       String?  // Hex color for UI
+  icon        String?  // Icon name
+
+  // Hierarchy support
+  parentId    String?
+  parent      MerchCategory? @relation("MerchCategoryHierarchy", fields: [parentId], references: [id])
+  children    MerchCategory[] @relation("MerchCategoryHierarchy")
+
+  // Relations
+  products    MerchProduct[]
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("merch_categories")
+}
+
+// Merchandise Products
+model MerchProduct {
+  id          String      @id @default(cuid())
+
+  // Basic Information
+  name        Json        // {"en": "Product Name", "mn": "Бүтээгдэхүүний нэр"}
+  slug        String
+  description Json?       // {"en": "Description", "mn": "Тодорхойлолт"}
+  shortDescription Json?  // {"en": "Short desc", "mn": "Товч тодорхойлолт"}
+
+  // Product Details
+  sku         String?     // Stock Keeping Unit
+  barcode     String?     // Product barcode
+
+  // Pricing
+  price       Float       // Base price
+  compareAtPrice Float?   // Original price (for sales)
+  costPrice   Float?      // Cost price (for profit calculation)
+  currency    String      @default("USD")
+
+  // Inventory
+  inventory   Int         @default(0)
+  trackInventory Boolean  @default(true)
+  allowBackorder Boolean  @default(false)
+  minStock    Int?        // Minimum stock level
+  maxStock    Int?        // Maximum stock level
+
+  // Physical Properties
+  weight      Float?      // Product weight
+  dimensions  Json?       // {"length": 10, "width": 5, "height": 2, "unit": "cm"}
+
+  // Product Images
+  featuredImage String?   // Primary product image URL
+  images      Json?       // Array of image URLs
+
+  // Categorization
+  categoryId  String?
+  category    MerchCategory? @relation(fields: [categoryId], references: [id])
+  tags        Json?       // Array of tags
+
+  // Product Variants (stored as JSON for flexibility)
+  hasVariants Boolean     @default(false)
+  variants    Json?       // Array of variant objects
+  options     Json?       // Array of option types (size, color, etc.)
+
+  // SEO & Marketing
+  metaTitle       Json?   // {"en": "SEO Title", "mn": "SEO Гарчиг"}
+  metaDescription Json?   // {"en": "SEO Description", "mn": "SEO Тайлбар"}
+  searchKeywords  Json?   // {"en": ["keyword1"], "mn": ["түлхүүр_үг1"]}
+
+  // Product Status
+  status      MerchProductStatus @default(DRAFT)
+  isFeatured  Boolean     @default(false)
+  isDigital   Boolean     @default(false)
+
+  // Publishing
+  publishedAt DateTime?
+
+  // Multi-tenant & Timestamps
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User        @relation("MerchProductCreator", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?       @relation("MerchProductUpdater", fields: [updatedById], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([slug, tenantId])
+  @@unique([sku, tenantId])
+  @@map("merch_products")
+}
+
+// Product Status Enum
+enum MerchProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
