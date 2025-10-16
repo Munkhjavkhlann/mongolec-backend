@@ -273,7 +273,7 @@ export class GraphQLServer {
             req,
             res,
             prisma,
-            redis: redisClient.getClient(),
+            redis: redisClient.isHealthy() ? redisClient.getClient() : null as any,
             user,
             tenant,
             dataSources: {
