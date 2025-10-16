@@ -22,6 +22,9 @@ RUN bun run build || echo "No build script, using source"
 # Production stage
 FROM oven/bun:1-slim
 
+# Install OpenSSL for Prisma
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files
