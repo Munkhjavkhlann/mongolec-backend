@@ -18,8 +18,8 @@ const configSchema = Joi.object({
   DATABASE_POOL_SIZE: Joi.number().min(1).max(50).default(10),
   DATABASE_CONNECTION_TIMEOUT: Joi.number().min(1000).default(5000),
   
-  // Redis configuration
-  REDIS_URL: Joi.string().required(),
+  // Redis configuration (optional - not actively used yet)
+  REDIS_URL: Joi.string().optional().default(''),
   REDIS_PASSWORD: Joi.string().allow('').default(''),
   REDIS_DB: Joi.number().min(0).max(15).default(0),
   
