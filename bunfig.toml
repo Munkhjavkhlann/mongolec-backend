@@ -1,0 +1,11 @@
+[install]
+# Bun install configuration
+exact = true
+
+[run]
+# Enable path aliases from tsconfig.json
+bun = "bun"
+
+# Path alias configuration
+[alias]
+"@" = "./src"
