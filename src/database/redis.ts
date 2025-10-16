@@ -15,7 +15,12 @@ class RedisClient {
   private readonly maxReconnectAttempts = 5;
 
   constructor() {
-    this.connect();
+    // Only connect if Redis URL is configured
+    if (config.redis.url && config.redis.url.trim() !== '') {
+      this.connect();
+    } else {
+      logger.warn('Redis URL not configured - running without cache');
+    }
   }
 
   /**
@@ -311,7 +316,9 @@ export class CacheService {
   }
 }
 
-// Export cache service instance
-export const cacheService = new CacheService(redisClient.getClient());
+// Export cache service instance (only if Redis is connected)
+export const cacheService = redisClient.isHealthy()
+  ? new CacheService(redisClient.getClient())
+  : null;
 
 export default redisClient;
