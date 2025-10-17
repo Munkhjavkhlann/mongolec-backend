@@ -1,6 +1,9 @@
 # Multi-stage build for production
 FROM oven/bun:1 AS builder
 
+# Install OpenSSL for Prisma in builder stage
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files
@@ -13,8 +16,8 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN bunx prisma generate
+# Generate Prisma Client with timeout
+RUN bunx prisma generate --generator client
 
 # Build TypeScript
 RUN bun run build || echo "No build script, using source"
