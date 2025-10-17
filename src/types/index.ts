@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
+import type { ExtendedPrismaClient } from '@/database/prisma';
 
 /**
  * GraphQL Context interface
@@ -9,7 +10,7 @@ import Redis from 'ioredis';
 export interface GraphQLContext {
   req: Request;
   res: Response;
-  prisma: PrismaClient;
+  prisma: ExtendedPrismaClient;
   redis: Redis;
   user?: AuthenticatedUser;
   tenant?: Tenant;
@@ -252,13 +253,13 @@ export class AppError extends Error {
 /**
  * Database transaction type
  */
-export type TransactionClient = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0];
+export type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
 /**
  * Service base interface
  */
 export interface BaseService {
-  readonly prisma: PrismaClient;
+  readonly prisma: ExtendedPrismaClient;
   readonly redis: Redis;
   readonly tenantId?: string;
 }

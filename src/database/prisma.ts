@@ -5,103 +5,93 @@ import { createLogger, logDatabaseQuery } from '@/utils/logger';
 const logger = createLogger('DATABASE');
 
 /**
- * Extended Prisma Client with logging and middleware
+ * Create extended Prisma Client with soft delete, tenant isolation, and performance monitoring
+ */
+function createExtendedPrismaClient() {
+  const basePrisma = new PrismaClient({
+    log: config.isDevelopment ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: config.database.url,
+      },
+    },
+  });
+
+  return basePrisma.$extends({
+    query: {
+      // Apply to all models and operations
+      $allOperations: async ({ operation, model, args, query }) => {
+        // Performance monitoring
+        const start = Date.now();
+
+        // Soft delete: Intercept delete operations
+        if (operation === 'delete') {
+          // @ts-ignore - Transform delete to update
+          return (basePrisma[model] as any).update({
+            ...args,
+            data: { deletedAt: new Date() },
+          });
+        }
+
+        if (operation === 'deleteMany') {
+          // @ts-ignore - Transform deleteMany to updateMany
+          return (basePrisma[model] as any).updateMany({
+            ...args,
+            data: { deletedAt: new Date() },
+          });
+        }
+
+        // Tenant isolation warning for models with tenantId
+        const modelsWithTenant = ['user', 'role', 'permission', 'content', 'media', 'auditLog'];
+        if (modelsWithTenant.includes(model?.toLowerCase() || '')) {
+          if (operation === 'findMany' || operation === 'findFirst') {
+            if (args.where && !args.where.tenantId) {
+              logger.warn('Query without tenant isolation detected', {
+                model,
+                operation,
+              });
+            }
+          }
+        }
+
+        // Execute query
+        const result = await query(args);
+
+        // Log slow queries
+        const duration = Date.now() - start;
+        if (duration > 1000) {
+          logger.warn('Slow query detected', {
+            model,
+            operation,
+            duration: `${duration}ms`,
+          });
+        }
+
+        return result;
+      },
+    },
+  });
+}
+
+// Export type for the extended Prisma Client
+export type ExtendedPrismaClient = ReturnType<typeof createExtendedPrismaClient>;
+
+/**
+ * Extended Prisma Client with logging and extensions
  * Provides connection management and query logging for better observability
  */
 class DatabaseClient {
-  private static instance: PrismaClient | null = null;
+  private static instance: ExtendedPrismaClient | null = null;
   private isConnected = false;
 
   /**
    * Get singleton Prisma client instance
    */
-  static getInstance(): PrismaClient {
+  static getInstance(): ExtendedPrismaClient {
     if (!DatabaseClient.instance) {
-      DatabaseClient.instance = new PrismaClient({
-        log: config.isDevelopment ? ['query', 'error', 'warn'] : ['error'],
-        datasources: {
-          db: {
-            url: config.database.url,
-          },
-        },
-      });
-      
-      // Set up middleware
-      DatabaseClient.setupMiddleware(DatabaseClient.instance);
+      DatabaseClient.instance = createExtendedPrismaClient();
     }
-
     return DatabaseClient.instance;
-  }
-
-
-  /**
-   * Set up Prisma middleware for tenant isolation and audit logging
-   */
-  private static setupMiddleware(prisma: PrismaClient): void {
-    // Soft delete middleware
-    prisma.$use(async (params, next) => {
-      // Intercept delete operations to implement soft delete
-      if (params.action === 'delete') {
-        params.action = 'update';
-        params.args.data = { deletedAt: new Date() };
-      }
-
-      // Intercept deleteMany operations
-      if (params.action === 'deleteMany') {
-        params.action = 'updateMany';
-        if (params.args.data != undefined) {
-          params.args.data['deletedAt'] = new Date();
-        } else {
-          params.args['data'] = { deletedAt: new Date() };
-        }
-      }
-
-      return next(params);
-    });
-
-    // Tenant isolation middleware
-    prisma.$use(async (params, next) => {
-      // Add tenant filtering for models that have tenantId
-      const modelsWithTenant = [
-        'user', 'role', 'permission', 'content', 'media', 'auditLog'
-      ];
-
-      if (modelsWithTenant.includes(params.model?.toLowerCase() || '')) {
-        if (params.action === 'findMany' || params.action === 'findFirst') {
-          // Add tenant filter to where clause
-          if (params.args.where) {
-            if (params.args.where.tenantId === undefined) {
-              // Only add tenant filter if not already specified
-              // This allows for cross-tenant queries when explicitly needed
-              logger.warn('Query without tenant isolation detected', {
-                model: params.model,
-                action: params.action,
-              });
-            }
-          }
-        }
-      }
-
-      return next(params);
-    });
-
-    // Query performance monitoring
-    prisma.$use(async (params, next) => {
-      const start = Date.now();
-      const result = await next(params);
-      const duration = Date.now() - start;
-
-      // Log slow queries (>1000ms)
-      if (duration > 1000) {
-        logger.warn('Slow query detected', {
-          model: params.model,
-          action: params.action,
-          duration: `${duration}ms`,
-        });
-      }
-
-      return result;
-    });
   }
 
   /**
@@ -167,7 +157,7 @@ class DatabaseClient {
       const start = Date.now();
       const result = await prisma.$queryRawUnsafe(query, ...(params || []));
       const duration = Date.now() - start;
-      
+
       logDatabaseQuery(query, params, duration);
       return result;
     } catch (error) {
@@ -180,7 +170,7 @@ class DatabaseClient {
    * Execute transaction with retry logic
    */
   async transaction<T>(
-    fn: (prisma: PrismaClient) => Promise<T>,
+    fn: (prisma: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>,
     maxRetries: number = 3
   ): Promise<T> {
     const prisma = DatabaseClient.getInstance();
@@ -188,6 +178,7 @@ class DatabaseClient {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // @ts-ignore - Extended client works with transactions
         return await prisma.$transaction(fn, {
           timeout: config.database.connectionTimeout,
           isolationLevel: 'ReadCommitted',

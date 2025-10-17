@@ -2,15 +2,14 @@ import express from 'express';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
-import { ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import { config } from '@/config';
-import { typeDefs } from '@/schema';
-import { resolvers } from '@/resolvers';
+import { typeDefs } from '@/graphql/schema';
+import { resolvers } from '@/graphql/resolvers';
 import { GraphQLContext } from '@/types';
 import { prisma, databaseClient } from '@/database/prisma';
 import { redisClient } from '@/database/redis';
@@ -45,12 +44,6 @@ export class GraphQLServer {
       plugins: [
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
-
-        // Embedded Apollo Sandbox for production
-        ApolloServerPluginLandingPageProductionDefault({
-          embed: true,
-          includeCookies: true,
-        }),
 
         // Custom plugins for logging and monitoring
         {
