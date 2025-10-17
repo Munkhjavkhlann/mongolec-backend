@@ -26,8 +26,9 @@ export const authResolvers = {
      * Get current authenticated user
      */
     me: async (_parent: any, _args: any, context: any) => {
+      // Return null if not authenticated (don't throw error)
       if (!context.user) {
-        throw new Error('Not authenticated');
+        return null;
       }
 
       const user = await prisma.user.findUnique({
@@ -36,10 +37,6 @@ export const authResolvers = {
           tenant: true,
         },
       });
-
-      if (!user) {
-        throw new Error('User not found');
-      }
 
       return user;
     },

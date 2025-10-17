@@ -28,25 +28,33 @@ export const merchQueries = {
         include: {
           category: true,
           tenant: true,
+          productVariants: {
+            where: { deletedAt: null },
+            orderBy: { position: 'asc' },
+          },
         },
         take: limit,
         skip: offset,
-        orderBy: [
-          { isFeatured: 'desc' },
-          { status: 'asc' },
-          { createdAt: 'desc' },
-        ],
+        orderBy: [{ isFeatured: 'desc' }, { status: 'asc' }, { createdAt: 'desc' }],
       });
 
       // Transform for localization
       return products.map(product => ({
         ...product,
         name: getLocalizedContent(product.name, language),
-        description: product.description ? getLocalizedContent(product.description, language) : null,
-        shortDescription: product.shortDescription ? getLocalizedContent(product.shortDescription, language) : null,
+        description: product.description
+          ? getLocalizedContent(product.description, language)
+          : null,
+        shortDescription: product.shortDescription
+          ? getLocalizedContent(product.shortDescription, language)
+          : null,
         metaTitle: product.metaTitle ? getLocalizedContent(product.metaTitle, language) : null,
-        metaDescription: product.metaDescription ? getLocalizedContent(product.metaDescription, language) : null,
-        searchKeywords: product.searchKeywords ? getLocalizedContent(product.searchKeywords, language) : null,
+        metaDescription: product.metaDescription
+          ? getLocalizedContent(product.metaDescription, language)
+          : null,
+        searchKeywords: product.searchKeywords
+          ? getLocalizedContent(product.searchKeywords, language)
+          : null,
         category: product.category
           ? {
               ...product.category,
@@ -56,6 +64,11 @@ export const merchQueries = {
                 : null,
             }
           : null,
+        variants: product.productVariants.map((variant: any) => ({
+          ...variant,
+          title: variant.title ? getLocalizedContent(variant.title, language) : null,
+          // Keep optionValues as-is (contains multi-language data)
+        })),
       }));
     } catch (error) {
       logger.error('Error fetching merch products', error as Error);
@@ -75,6 +88,10 @@ export const merchQueries = {
         include: {
           category: true,
           tenant: true,
+          productVariants: {
+            where: { deletedAt: null },
+            orderBy: { position: 'asc' },
+          },
         },
       });
 
@@ -84,11 +101,19 @@ export const merchQueries = {
       return {
         ...product,
         name: getLocalizedContent(product.name, language),
-        description: product.description ? getLocalizedContent(product.description, language) : null,
-        shortDescription: product.shortDescription ? getLocalizedContent(product.shortDescription, language) : null,
+        description: product.description
+          ? getLocalizedContent(product.description, language)
+          : null,
+        shortDescription: product.shortDescription
+          ? getLocalizedContent(product.shortDescription, language)
+          : null,
         metaTitle: product.metaTitle ? getLocalizedContent(product.metaTitle, language) : null,
-        metaDescription: product.metaDescription ? getLocalizedContent(product.metaDescription, language) : null,
-        searchKeywords: product.searchKeywords ? getLocalizedContent(product.searchKeywords, language) : null,
+        metaDescription: product.metaDescription
+          ? getLocalizedContent(product.metaDescription, language)
+          : null,
+        searchKeywords: product.searchKeywords
+          ? getLocalizedContent(product.searchKeywords, language)
+          : null,
         category: product.category
           ? {
               ...product.category,
@@ -98,6 +123,11 @@ export const merchQueries = {
                 : null,
             }
           : null,
+        variants: product.productVariants.map((variant: any) => ({
+          ...variant,
+          title: variant.title ? getLocalizedContent(variant.title, language) : null,
+          // Keep optionValues as-is (contains multi-language data)
+        })),
       };
     } catch (error) {
       logger.error('Error fetching merch product', error as Error);
@@ -142,9 +172,7 @@ export const merchQueries = {
         children: category.children.map(child => ({
           ...child,
           name: getLocalizedContent(child.name, language),
-          description: child.description
-            ? getLocalizedContent(child.description, language)
-            : null,
+          description: child.description ? getLocalizedContent(child.description, language) : null,
         })),
       }));
     } catch (error) {
@@ -191,9 +219,7 @@ export const merchQueries = {
         children: category.children.map(child => ({
           ...child,
           name: getLocalizedContent(child.name, language),
-          description: child.description
-            ? getLocalizedContent(child.description, language)
-            : null,
+          description: child.description ? getLocalizedContent(child.description, language) : null,
         })),
       };
     } catch (error) {

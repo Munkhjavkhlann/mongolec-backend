@@ -668,10 +668,18 @@ model MerchProduct {
   category    MerchCategory? @relation(fields: [categoryId], references: [id])
   tags        Json?       // Array of tags
 
-  // Product Variants (stored as JSON for flexibility)
+  // Product Options & Variants (Multi-language support)
+  // Options stored as JSON with multi-language:
+  // [
+  //   { "name": {"en": "Color", "mn": "Өнгө"}, "values": [{"en": "Blue", "mn": "Цэнхэр"}, {"en": "Red", "mn": "Улаан"}] },
+  //   { "name": {"en": "Size", "mn": "Хэмжээ"}, "values": [{"en": "Small", "mn": "Жижиг"}, {"en": "Large", "mn": "Том"}] }
+  // ]
   hasVariants Boolean     @default(false)
-  variants    Json?       // Array of variant objects
-  options     Json?       // Array of option types (size, color, etc.)
+  variants    Json?       // DEPRECATED: Legacy JSON storage, use productVariants relation instead
+  options     Json?       // Array of option types with multi-language names and values
+
+  // Variant relations (named productVariants to avoid conflict with JSON column)
+  productVariants    MerchVariant[] @relation("ProductVariants")
 
   // SEO & Marketing
   metaTitle       Json?   // {"en": "SEO Title", "mn": "SEO Гарчиг"}
@@ -700,6 +708,59 @@ model MerchProduct {
   @@unique([slug, tenantId])
   @@unique([sku, tenantId])
   @@map("merch_products")
+}
+
+// Merchandise Product Variants
+model MerchVariant {
+  id          String      @id @default(cuid())
+
+  // Variant Identity
+  sku         String      // Unique SKU for this variant
+  barcode     String?     // Variant-specific barcode
+
+  // Variant Title (multi-language) - e.g., {"en": "Blue / Large", "mn": "Цэнхэр / Том"}
+  title       Json?       // Auto-generated or custom variant title
+
+  // Option Values with multi-language support
+  // Stores which option values this variant has:
+  // [
+  //   {"option": {"en": "Color", "mn": "Өнгө"}, "value": {"en": "Blue", "mn": "Цэнхэр"}},
+  //   {"option": {"en": "Size", "mn": "Хэмжээ"}, "value": {"en": "Large", "mn": "Том"}}
+  // ]
+  optionValues Json       // Array of selected option values for this variant
+
+  // Variant-Specific Pricing
+  price       Float       // Variant price (can differ from base product)
+  compareAtPrice Float?   // Original price for this variant
+  costPrice   Float?      // Cost price for this variant
+
+  // Variant-Specific Inventory
+  inventory   Int         @default(0)
+
+  // Physical Properties
+  weight      Float?      // Variant-specific weight
+  dimensions  Json?       // {"length": 10, "width": 5, "height": 2, "unit": "cm"}
+
+  // Variant Image
+  image       String?     // Variant-specific image URL
+
+  // Position for ordering variants
+  position    Int         @default(0)
+
+  // Status
+  isAvailable Boolean     @default(true)
+
+  // Relations
+  productId   String
+  product     MerchProduct @relation("ProductVariants", fields: [productId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([sku, productId])
+  @@map("merch_variants")
 }
 
 // Product Status Enum

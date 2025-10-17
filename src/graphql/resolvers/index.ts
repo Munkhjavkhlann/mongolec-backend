@@ -94,7 +94,7 @@ export const resolvers = {
     // Domain mutations
     ...authMutations,
     ...newsMutations,
-    ...merchMutations,
+    ...merchMutations, // Includes variant mutations
     ...contentMutations,
   },
 };

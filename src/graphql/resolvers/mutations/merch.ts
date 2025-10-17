@@ -21,35 +21,54 @@ export const merchMutations = {
 
       const { input } = args;
 
+      // Extract variants from input
+      const { variants, ...productData } = input;
+
       // Generate slug if not provided
       const slug =
-        input.slug ||
-        slugify(typeof input.name === 'string' ? input.name : input.name.en || 'product');
+        productData.slug ||
+        slugify(
+          typeof productData.name === 'string' ? productData.name : productData.name.en || 'product'
+        );
 
       // Set published date if status is ACTIVE and no date provided
       const publishedAt =
-        input.status === 'ACTIVE' && !input.publishedAt ? new Date() : input.publishedAt;
+        productData.status === 'ACTIVE' && !productData.publishedAt
+          ? new Date()
+          : productData.publishedAt;
 
       const product = await context.prisma.merchProduct.create({
         data: {
-          ...input,
+          ...productData,
           slug,
           publishedAt,
           tenantId: context.user.tenantId,
           createdById: context.user.id,
+          // Create variants if provided
+          productVariants:
+            variants && variants.length > 0
+              ? {
+                  create: variants.map((variant: any, index: number) => ({
+                    ...variant,
+                    position: variant.position ?? index,
+                    inventory: variant.inventory ?? 0,
+                    isAvailable: variant.isAvailable ?? true,
+                  })),
+                }
+              : undefined,
         },
         include: {
           category: true,
           tenant: true,
+          productVariants: {
+            where: { deletedAt: null },
+            orderBy: { position: 'asc' },
+          },
         },
       });
 
       logger.info(`Created merch product: ${product.id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise product created successfully',
-        product,
-      };
+      return product;
     } catch (error) {
       logger.error('Error creating merch product', error as Error);
       throw new Error('Failed to create merchandise product');
@@ -77,19 +96,22 @@ export const merchMutations = {
         throw new Error('Merchandise product not found');
       }
 
+      // Extract variants from input
+      const { variants, ...productData } = input;
+
       // Update slug if name changed
-      const updateData: any = { ...input };
-      if (input.name && !input.slug) {
+      const updateData: any = { ...productData };
+      if (productData.name && !productData.slug) {
         updateData.slug = slugify(
-          typeof input.name === 'string' ? input.name : input.name.en || 'product'
+          typeof productData.name === 'string' ? productData.name : productData.name.en || 'product'
         );
       }
 
       // Set published date if status changed to ACTIVE
       if (
-        input.status === 'ACTIVE' &&
+        productData.status === 'ACTIVE' &&
         existingProduct.status !== 'ACTIVE' &&
-        !input.publishedAt
+        !productData.publishedAt
       ) {
         updateData.publishedAt = new Date();
       }
@@ -97,21 +119,42 @@ export const merchMutations = {
       // Set updated by user
       updateData.updatedById = context.user.id;
 
+      // Handle variant updates
+      // If variants are provided, delete existing and create new ones
+      if (variants !== undefined) {
+        // Delete existing variants
+        await context.prisma.merchVariant.deleteMany({
+          where: { productId: id },
+        });
+
+        // Create new variants if provided
+        if (variants && variants.length > 0) {
+          updateData.productVariants = {
+            create: variants.map((variant: any, index: number) => ({
+              ...variant,
+              position: variant.position ?? index,
+              inventory: variant.inventory ?? 0,
+              isAvailable: variant.isAvailable ?? true,
+            })),
+          };
+        }
+      }
+
       const product = await context.prisma.merchProduct.update({
         where: { id },
         data: updateData,
         include: {
           category: true,
           tenant: true,
+          productVariants: {
+            where: { deletedAt: null },
+            orderBy: { position: 'asc' },
+          },
         },
       });
 
       logger.info(`Updated merch product: ${product.id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise product updated successfully',
-        product,
-      };
+      return product;
     } catch (error) {
       logger.error('Error updating merch product', error as Error);
       throw new Error('Failed to update merchandise product');
@@ -147,16 +190,100 @@ export const merchMutations = {
       });
 
       logger.info(`Deleted merch product: ${id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise product deleted successfully',
-      };
+      return true;
     } catch (error) {
       logger.error('Error deleting merch product', error as Error);
-      return {
-        success: false,
-        message: 'Failed to delete merchandise product',
-      };
+      throw new Error('Failed to delete merchandise product');
+    }
+  },
+
+  /**
+   * Create individual merchandise variant
+   */
+  createMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
+    try {
+      // Check authentication
+      if (!context.user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { productId, input } = args;
+
+      // Check if product exists
+      const product = await context.prisma.merchProduct.findUnique({
+        where: { id: productId },
+      });
+
+      if (!product || product.deletedAt) {
+        throw new Error('Product not found');
+      }
+
+      const variant = await context.prisma.merchVariant.create({
+        data: {
+          ...input,
+          productId,
+          inventory: input.inventory ?? 0,
+          isAvailable: input.isAvailable ?? true,
+        },
+      });
+
+      logger.info(`Created variant: ${variant.id} for product: ${productId}`, {
+        userId: context.user.id,
+      });
+      return variant;
+    } catch (error) {
+      logger.error('Error creating variant', error as Error);
+      throw new Error('Failed to create variant');
+    }
+  },
+
+  /**
+   * Update merchandise variant
+   */
+  updateMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
+    try {
+      // Check authentication
+      if (!context.user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { id, input } = args;
+
+      const variant = await context.prisma.merchVariant.update({
+        where: { id },
+        data: input,
+      });
+
+      logger.info(`Updated variant: ${variant.id}`, { userId: context.user.id });
+      return variant;
+    } catch (error) {
+      logger.error('Error updating variant', error as Error);
+      throw new Error('Failed to update variant');
+    }
+  },
+
+  /**
+   * Delete merchandise variant
+   */
+  deleteMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
+    try {
+      // Check authentication
+      if (!context.user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { id } = args;
+
+      await context.prisma.merchVariant.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
+
+      logger.info(`Deleted variant: ${id}`, { userId: context.user.id });
+      return true;
+    } catch (error) {
+      logger.error('Error deleting variant', error as Error);
+      throw new Error('Failed to delete variant');
     }
   },
 
@@ -192,11 +319,7 @@ export const merchMutations = {
       });
 
       logger.info(`Created merch category: ${category.id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise category created successfully',
-        category,
-      };
+      return category;
     } catch (error) {
       logger.error('Error creating merch category', error as Error);
       throw new Error('Failed to create merchandise category');
@@ -227,11 +350,7 @@ export const merchMutations = {
       });
 
       logger.info(`Updated merch category: ${category.id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise category updated successfully',
-        category,
-      };
+      return category;
     } catch (error) {
       logger.error('Error updating merch category', error as Error);
       throw new Error('Failed to update merchandise category');
@@ -254,7 +373,7 @@ export const merchMutations = {
       const productsCount = await context.prisma.merchProduct.count({
         where: {
           categoryId: id,
-          deletedAt: null
+          deletedAt: null,
         },
       });
 
@@ -268,16 +387,12 @@ export const merchMutations = {
       });
 
       logger.info(`Deleted merch category: ${id}`, { userId: context.user.id });
-      return {
-        success: true,
-        message: 'Merchandise category deleted successfully',
-      };
+      return true;
     } catch (error) {
       logger.error('Error deleting merch category', error as Error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to delete merchandise category',
-      };
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to delete merchandise category'
+      );
     }
   },
 };

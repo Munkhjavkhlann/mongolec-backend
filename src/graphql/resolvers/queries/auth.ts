@@ -12,8 +12,9 @@ export const authQueries = {
    * Get current authenticated user
    */
   me: async (_parent: any, _args: any, context: GraphQLContext) => {
+    // Return null if not authenticated (don't throw error)
     if (!context.user) {
-      throw new Error('Not authenticated');
+      return null;
     }
 
     const user = await context.prisma.user.findUnique({
@@ -22,10 +23,6 @@ export const authQueries = {
         tenant: true,
       },
     });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
 
     return user;
   },

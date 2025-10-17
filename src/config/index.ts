@@ -19,9 +19,9 @@ const configSchema = Joi.object({
   DATABASE_CONNECTION_TIMEOUT: Joi.number().min(1000).default(5000),
   
   // Redis configuration (optional - not actively used yet)
-  REDIS_URL: Joi.string().optional().default(''),
-  REDIS_PASSWORD: Joi.string().allow('').default(''),
-  REDIS_DB: Joi.number().min(0).max(15).default(0),
+  REDIS_URL: Joi.string().allow('').optional().default(''),
+  REDIS_PASSWORD: Joi.string().allow('').optional().default(''),
+  REDIS_DB: Joi.number().min(0).max(15).optional().default(0),
   
   // JWT configuration
   JWT_SECRET: Joi.string().min(32).required(),
