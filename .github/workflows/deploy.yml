@@ -119,6 +119,19 @@ jobs:
 
           cd /opt/mongolec
 
+          # Create .env file from secrets
+          sudo tee /opt/mongolec/.env > /dev/null <<EOF
+          B2_ENDPOINT=${{ secrets.B2_ENDPOINT }}
+          B2_REGION=${{ secrets.B2_REGION }}
+          B2_ACCESS_KEY_ID=${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_SECRET_ACCESS_KEY=${{ secrets.B2_SECRET_ACCESS_KEY }}
+          B2_BUCKET_NAME=${{ secrets.B2_BUCKET_NAME }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          PORT=4000
+          EOF
+
           # Pull latest image
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           sudo docker pull ghcr.io/munkhjavkhlann/mongolec-backend:latest
