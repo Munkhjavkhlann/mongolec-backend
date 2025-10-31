@@ -27,6 +27,16 @@ export function slugify(text: string): string {
 }
 
 /**
+ * Validate that a slug follows kebab-case format
+ * Allows lowercase letters, numbers, and hyphens only
+ * Must not start or end with a hyphen
+ */
+export function isValidSlug(slug: string): boolean {
+  const kebabCaseRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  return kebabCaseRegex.test(slug);
+}
+
+/**
  * Validate email format
  */
 export function isValidEmail(email: string): boolean {

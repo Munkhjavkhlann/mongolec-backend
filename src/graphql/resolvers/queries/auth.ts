@@ -34,9 +34,9 @@ export const authQueries = {
     try {
       const tenants = await context.prisma.tenant.findMany({
         where: {
-          status: 'ACTIVE',
+          deletedAt: null, // Only active tenants (not soft-deleted)
         },
-        orderBy: { name: 'asc' },
+        orderBy: { createdAt: 'desc' },
       });
 
       return tenants;

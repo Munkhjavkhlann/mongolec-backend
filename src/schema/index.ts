@@ -22,14 +22,49 @@ export const typeDefs = gql`
     updatedAt: DateTime!
   }
 
+  enum TenantStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+    PENDING
+    ARCHIVED
+  }
+
+  enum TenantPlan {
+    FREE
+    BASIC
+    PRO
+    ENTERPRISE
+  }
+
   type Tenant {
     id: ID!
     name: String!
     slug: String!
     domain: String
     isActive: Boolean!
+    status: TenantStatus!
+    plan: TenantPlan!
     createdAt: DateTime!
     updatedAt: DateTime!
+  }
+
+  input CreateTenantInput {
+    name: String!
+    slug: String!
+    domain: String
+    isActive: Boolean
+    status: TenantStatus
+    plan: TenantPlan
+  }
+
+  input UpdateTenantInput {
+    name: String
+    slug: String
+    domain: String
+    isActive: Boolean
+    status: TenantStatus
+    plan: TenantPlan
   }
 
   type AuthPayload {
@@ -324,6 +359,8 @@ export const typeDefs = gql`
     # Auth
     me: User
     tenants: [Tenant!]!
+    tenantById(id: ID!): Tenant
+    tenantBySlug(slug: String!): Tenant
 
     # News
     newsArticles(
@@ -357,6 +394,15 @@ export const typeDefs = gql`
   }
 
   # ============================================
+  # Upload Types
+  # ============================================
+
+  type PresignedUrl {
+    uploadUrl: String!
+    fileUrl: String!
+  }
+
+  # ============================================
   # Mutations
   # ============================================
 
@@ -371,6 +417,11 @@ export const typeDefs = gql`
       tenantSlug: String!
     ): AuthPayload!
     logout: Boolean!
+
+    # Tenant Management
+    createTenant(input: CreateTenantInput!): Tenant!
+    updateTenant(id: ID!, input: UpdateTenantInput!): Tenant!
+    deleteTenant(id: ID!): Boolean!
 
     # News
     createNewsArticle(input: CreateNewsArticleInput!): NewsArticle!
@@ -392,6 +443,9 @@ export const typeDefs = gql`
     createContent(input: CreateContentInput!): Content!
     updateContent(id: ID!, input: UpdateContentInput!): Content!
     deleteContent(id: ID!): Boolean!
+
+    # File Upload
+    createPresignedUploadUrl(fileType: String!): PresignedUrl!
   }
 `;
 

@@ -200,6 +200,8 @@ export const merchSchema = gql`
       status: String
       categoryId: ID
       isFeatured: Boolean
+      tenantId: ID
+      tenantSlug: String
       limit: Int
       offset: Int
     ): [MerchProduct!]!

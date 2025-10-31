@@ -3,6 +3,7 @@ import { authSchema } from './auth';
 import { newsSchema } from './news';
 import { merchSchema } from './merch';
 import { contentSchema } from './content';
+import { uploadTypeDefs } from "./upload";
 
 /**
  * Base Schema
@@ -46,6 +47,7 @@ export const typeDefs = [
   newsSchema,
   merchSchema,
   contentSchema,
+  uploadTypeDefs,
 ];
 
 export default typeDefs;

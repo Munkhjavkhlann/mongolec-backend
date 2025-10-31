@@ -14,7 +14,16 @@ export const merchQueries = {
    */
   merchProducts: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
-      const { language = 'en', status, categoryId, isFeatured, limit = 50, offset = 0 } = args;
+      const {
+        language = 'en',
+        status,
+        categoryId,
+        isFeatured,
+        tenantId,
+        tenantSlug,
+        limit = 50,
+        offset = 0,
+      } = args;
 
       // Build where clause
       const where: any = { deletedAt: null };
@@ -22,6 +31,22 @@ export const merchQueries = {
       if (status) where.status = status;
       if (categoryId) where.categoryId = categoryId;
       if (isFeatured !== undefined) where.isFeatured = isFeatured;
+
+      // Handle tenant filtering
+      if (tenantId) {
+        where.tenantId = tenantId;
+      } else if (tenantSlug) {
+        // If tenantSlug is provided, find the tenant first
+        const tenant = await context.prisma.tenant.findUnique({
+          where: { slug: tenantSlug },
+        });
+        if (tenant) {
+          where.tenantId = tenant.id;
+        } else {
+          // If tenant not found, return empty array
+          return [];
+        }
+      }
 
       const products = await context.prisma.merchProduct.findMany({
         where,

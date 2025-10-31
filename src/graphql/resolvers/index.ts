@@ -2,6 +2,7 @@ import { GraphQLScalarType, Kind } from 'graphql';
 
 // Import queries
 import { authQueries } from './queries/auth';
+import { tenantQueries } from './queries/tenant';
 import { newsQueries } from './queries/news';
 import { merchQueries } from './queries/merch';
 import { contentQueries } from './queries/content';
@@ -11,6 +12,8 @@ import { authMutations } from './mutations/auth';
 import { newsMutations } from './mutations/news';
 import { merchMutations } from './mutations/merch';
 import { contentMutations } from './mutations/content';
+import { tenantMutations } from './mutations/tenant';
+import { uploadResolvers } from './mutations/upload';
 
 /**
  * Custom scalar resolvers
@@ -84,6 +87,7 @@ export const resolvers = {
 
     // Domain queries
     ...authQueries,
+    ...tenantQueries,
     ...newsQueries,
     ...merchQueries,
     ...contentQueries,
@@ -93,9 +97,11 @@ export const resolvers = {
   Mutation: {
     // Domain mutations
     ...authMutations,
+    ...tenantMutations,
     ...newsMutations,
     ...merchMutations, // Includes variant mutations
     ...contentMutations,
+    ...uploadResolvers.Mutation,
   },
 };
 

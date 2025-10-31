@@ -19,14 +19,49 @@ export const authSchema = gql`
     updatedAt: DateTime!
   }
 
+  enum TenantStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+    PENDING
+    ARCHIVED
+  }
+
+  enum TenantPlan {
+    FREE
+    BASIC
+    PRO
+    ENTERPRISE
+  }
+
   type Tenant {
     id: ID!
     name: String!
     slug: String!
     domain: String
     isActive: Boolean!
+    status: TenantStatus!
+    plan: TenantPlan!
     createdAt: DateTime!
     updatedAt: DateTime!
+  }
+
+  input CreateTenantInput {
+    name: String!
+    slug: String!
+    domain: String
+    isActive: Boolean
+    status: TenantStatus
+    plan: TenantPlan
+  }
+
+  input UpdateTenantInput {
+    name: String
+    slug: String
+    domain: String
+    isActive: Boolean
+    status: TenantStatus
+    plan: TenantPlan
   }
 
   type AuthPayload {
@@ -47,6 +82,8 @@ export const authSchema = gql`
   extend type Query {
     me: User
     tenants: [Tenant!]!
+    tenantById(id: ID!): Tenant
+    tenantBySlug(slug: String!): Tenant
   }
 
   # ============================================
@@ -63,5 +100,10 @@ export const authSchema = gql`
       tenantSlug: String!
     ): AuthPayload!
     logout: Boolean!
+
+    # Tenant Management
+    createTenant(input: CreateTenantInput!): Tenant!
+    updateTenant(id: ID!, input: UpdateTenantInput!): Tenant!
+    deleteTenant(id: ID!): Boolean!
   }
 `;

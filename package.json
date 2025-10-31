@@ -7,7 +7,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "start:dev": "ts-node src/index.ts",
+    "start:dev": "ts-node -r dotenv/config src/index.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -21,12 +21,14 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset",
-    "db:seed": "ts-node prisma/seed.ts",
+    "db:seed": "ts-node -r dotenv/config prisma/seed.ts",
     "db:studio": "prisma studio",
     "docker:up": "docker-compose -f docker-compose.dev.yml up -d",
     "docker:down": "docker-compose -f docker-compose.dev.yml down",
     "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "get-cors": "ts-node -r dotenv/config scripts/get-b2-cors.ts",
+    "set-cors": "ts-node -r dotenv/config scripts/set-b2-cors.ts"
   },
   "keywords": [
     "graphql",
@@ -37,12 +39,14 @@
     "cms",
     "postgresql"
   ],
-  "author": "Your Name",
+  "author": "Mongol Ecology Center",
   "license": "MIT",
   "dependencies": {
     "@apollo/federation": "^0.38.1",
     "@apollo/server": "^5.0.0",
     "@as-integrations/express4": "^1.1.2",
+    "@aws-sdk/client-s3": "^3.914.0",
+    "@aws-sdk/s3-request-presigner": "^3.914.0",
     "@prisma/client": "^5.10.0",
     "@types/cookie-parser": "^1.4.9",
     "apollo-server-express": "^3.12.1",
