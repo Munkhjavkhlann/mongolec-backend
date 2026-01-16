@@ -6,7 +6,7 @@ import { config } from '@/config';
  */
 const logFormat = winston.format.combine(
   winston.format.timestamp({
-    format: 'YYYY-MM-DD HH:mm:ss.SSS'
+    format: 'YYYY-MM-DD HH:mm:ss.SSS',
   }),
   winston.format.errors({ stack: true }),
   winston.format.json(),
@@ -16,7 +16,7 @@ const logFormat = winston.format.combine(
       level,
       message,
       ...(stack && { stack }),
-      ...(Object.keys(meta).length > 0 && { meta })
+      ...(Object.keys(meta).length > 0 && { meta }),
     };
     return JSON.stringify(logEntry);
   })
@@ -28,7 +28,7 @@ const logFormat = winston.format.combine(
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp({
-    format: 'HH:mm:ss'
+    format: 'HH:mm:ss',
   }),
   winston.format.printf(({ timestamp, level, message, stack }) => {
     return `${timestamp} [${level}]: ${message}${stack ? '\n' + stack : ''}`;
@@ -41,8 +41,8 @@ const consoleFormat = winston.format.combine(
 const transports: winston.transport[] = [
   new winston.transports.Console({
     format: config.isDevelopment ? consoleFormat : logFormat,
-    level: config.logging.level
-  })
+    level: config.logging.level,
+  }),
 ];
 
 // Add file transport if enabled
@@ -88,7 +88,7 @@ export class Logger {
     return {
       message,
       context: this.context,
-      ...meta
+      ...meta,
     };
   }
 
@@ -105,16 +105,18 @@ export class Logger {
   }
 
   error(message: string, error?: Error, meta?: Record<string, any>) {
-    logger.error(this.formatMessage(message, {
-      ...meta,
-      ...(error && {
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        }
+    logger.error(
+      this.formatMessage(message, {
+        ...meta,
+        ...(error && {
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          },
+        }),
       })
-    }));
+    );
   }
 }
 
@@ -130,7 +132,7 @@ export function createLogger(context: string): Logger {
  */
 export function logRequest(req: any, res: any, responseTime?: number) {
   const requestLogger = createLogger('HTTP');
-  
+
   requestLogger.info('Request processed', {
     method: req.method,
     url: req.url,
@@ -148,7 +150,7 @@ export function logRequest(req: any, res: any, responseTime?: number) {
  */
 export function logDatabaseQuery(query: string, params?: any[], duration?: number, error?: Error) {
   const dbLogger = createLogger('DATABASE');
-  
+
   if (error) {
     dbLogger.error('Database query failed', error, {
       query,
@@ -167,15 +169,20 @@ export function logDatabaseQuery(query: string, params?: any[], duration?: numbe
 /**
  * Cache operation logging helper
  */
-export function logCacheOperation(operation: 'get' | 'set' | 'del', key: string, hit?: boolean, error?: Error) {
+export function logCacheOperation(
+  operation: 'get' | 'set' | 'del',
+  key: string,
+  hit?: boolean,
+  error?: Error
+) {
   const cacheLogger = createLogger('CACHE');
-  
+
   if (error) {
     cacheLogger.error(`Cache ${operation} failed`, error, { key });
   } else {
     cacheLogger.debug(`Cache ${operation}`, {
       key,
-      ...(operation === 'get' && { hit })
+      ...(operation === 'get' && { hit }),
     });
   }
 }
@@ -183,25 +190,34 @@ export function logCacheOperation(operation: 'get' | 'set' | 'del', key: string,
 /**
  * Authentication logging helper
  */
-export function logAuth(action: 'login' | 'logout' | 'token_refresh' | 'failed_login', userId?: string, extra?: Record<string, any>) {
+export function logAuth(
+  action: 'login' | 'logout' | 'token_refresh' | 'failed_login',
+  userId?: string,
+  extra?: Record<string, any>
+) {
   const authLogger = createLogger('AUTH');
-  
+
   authLogger.info(`Authentication: ${action}`, {
     userId,
-    ...extra
+    ...extra,
   });
 }
 
 /**
  * Tenant operation logging helper
  */
-export function logTenant(action: string, tenantId: string, userId?: string, extra?: Record<string, any>) {
+export function logTenant(
+  action: string,
+  tenantId: string,
+  userId?: string,
+  extra?: Record<string, any>
+) {
   const tenantLogger = createLogger('TENANT');
-  
+
   tenantLogger.info(`Tenant operation: ${action}`, {
     tenantId,
     userId,
-    ...extra
+    ...extra,
   });
 }
 

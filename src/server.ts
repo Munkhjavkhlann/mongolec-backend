@@ -14,9 +14,10 @@ import { resolvers } from '@/graphql/resolvers';
 import { GraphQLContext } from '@/types';
 import { prisma, databaseClient } from '@/database/prisma';
 import { redisClient } from '@/database/redis';
-// Middleware temporarily disabled for troubleshooting
 import { createLogger, logRequest } from '@/utils/logger';
 import { AppError, ErrorType } from '@/types';
+import { authenticate, optionalAuthenticate } from '@/auth';
+import { csrfProtection, graphqlRateLimit } from '@/middleware';
 
 const logger = createLogger('SERVER');
 
@@ -28,6 +29,7 @@ export class GraphQLServer {
   private app: express.Application;
   private httpServer: http.Server;
   private apolloServer: ApolloServer<GraphQLContext>;
+  private requestCounter: number = 0;
 
   constructor() {
     this.app = express();
@@ -140,6 +142,9 @@ export class GraphQLServer {
     // Cookie parsing
     this.app.use(cookieParser());
 
+    // Authentication middleware (validates JWT token)
+    this.app.use(authenticate);
+
     // Body parsing
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -147,19 +152,23 @@ export class GraphQLServer {
     // Custom request logging with response time
     this.app.use((req, res, next) => {
       const start = Date.now();
-      
+
+      // Increment request counter for metrics
+      this.requestCounter++;
+
       res.on('finish', () => {
         const responseTime = Date.now() - start;
         logRequest(req, res, responseTime);
-        
-        // Track API calls for tenant (disabled for troubleshooting)
+
+        // Track API calls for tenant (optional feature for analytics)
+        // Note: This requires a tenant tracking service to be implemented
         // if ((req as any).tenant?.id) {
         //   TenantMiddleware.trackApiCall((req as any).tenant.id).catch(error => {
         //     logger.error('Failed to track API call', error);
         //   });
         // }
       });
-      
+
       next();
     });
 
@@ -195,46 +204,49 @@ export class GraphQLServer {
     // Metrics endpoint (if enabled)
     if (config.monitoring.metricsEnabled) {
       this.app.get('/metrics', (req, res) => {
-        // TODO: Implement metrics collection (Prometheus format)
+        // Basic metrics (can be extended with Prometheus format)
+        const uptime = process.uptime();
+        const memoryUsage = process.memoryUsage();
+
+        const metrics = `# Mongolec Backend Metrics
+# HELP system_uptime_seconds System uptime in seconds
+# TYPE system_uptime_seconds gauge
+system_uptime_seconds ${uptime}
+
+# HELP nodejs_memory_usage_bytes Node.js memory usage
+# TYPE nodejs_memory_usage_bytes gauge
+nodejs_memory_usage_bytes{type="rss"} ${memoryUsage.rss}
+nodejs_memory_usage_bytes{type="heap_total"} ${memoryUsage.heapTotal}
+nodejs_memory_usage_bytes{type="heap_used"} ${memoryUsage.heapUsed}
+nodejs_memory_usage_bytes{type="external"} ${memoryUsage.external}
+
+# HELP http_requests_total Total HTTP requests
+# TYPE http_requests_total counter
+http_requests_total ${this.requestCounter}
+
+# HELP graphql_operations_total Total GraphQL operations
+# TYPE graphql_operations_total counter
+graphql_operations_total 0
+`;
+
         res.set('Content-Type', 'text/plain');
-        res.send('# Metrics not implemented yet\n');
+        res.send(metrics);
       });
     }
+
+    // Apply CSRF protection to GraphQL endpoint
+    this.app.use('/graphql', csrfProtection);
+
+    // Apply rate limiting to GraphQL endpoint
+    this.app.use('/graphql', graphqlRateLimit);
 
     // GraphQL endpoint with context creation (Apollo's default landing page auto-serves)
     this.app.use('/graphql',
       expressMiddleware(this.apolloServer, {
         context: async ({ req, res }): Promise<GraphQLContext> => {
-          // Extract token from cookies instead of Authorization header
-          const token = req.cookies['auth-token'];
-
-          let user = null;
-          let tenant = null;
-
-          if (token) {
-            try {
-              const jwt = await import('jsonwebtoken');
-              const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
-
-              // Get user from database
-              user = await prisma.user.findUnique({
-                where: { id: payload.id },
-                include: { tenant: true }
-              });
-
-              if (user) {
-                tenant = user.tenant;
-              }
-            } catch (error) {
-              // Invalid token - clear the cookie
-              res.clearCookie('auth-token', {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-                path: '/'
-              });
-            }
-          }
+          // User and tenant are already attached to req by authenticate middleware
+          const user = (req as any).user || null;
+          const tenant = (req as any).tenant || null;
 
           return {
             req,
