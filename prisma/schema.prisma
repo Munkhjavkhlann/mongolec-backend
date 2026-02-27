@@ -44,6 +44,15 @@ model Tenant {
   merchCategories MerchCategory[]
   merchProducts   MerchProduct[]
 
+  // Rally for Rangers
+  rallies           Rally[]
+  applications      RallyApplication[]
+  parkPartnerships  ParkPartnership[]
+  stories           Story[]
+  rallyMedia        RallyMedia[]
+  newsletterSubs    NewsletterSubscription[]
+  parkNominations   ParkNomination[]
+
   @@map("tenants")
 }
 
@@ -72,13 +81,20 @@ model User {
   firstName     String
   lastName      String
   password      String
-  isActive      Boolean   @default(true)
+  isActive      Boolean   @default(false)  // Requires admin approval
   emailVerified Boolean   @default(false)
   lastLoginAt   DateTime?
   metadata      Json      @default("{}")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
+
+  // Admin approval tracking
+  approvedAt       DateTime?
+  approvedBy       String?   // User ID of admin who approved
+  rejectedAt       DateTime?
+  rejectedBy       String?   // User ID of admin who rejected
+  rejectionReason  String?
 
   // Multi-tenant relations
   tenantId String
@@ -107,6 +123,12 @@ model User {
   // Merch relations
   createdMerchProducts MerchProduct[] @relation("MerchProductCreator")
   updatedMerchProducts MerchProduct[] @relation("MerchProductUpdater")
+
+  // Rally for Rangers relations
+  createdRallies Rally[] @relation("RallyCreator")
+  updatedRallies Rally[] @relation("RallyUpdater")
+  createdStories Story[] @relation("StoryCreator")
+  uploadedRallyMedia RallyMedia[] @relation("RallyMediaUploader")
 
   @@unique([email, tenantId])
   @@map("users")
@@ -771,4 +793,445 @@ enum MerchProductStatus {
   INACTIVE
   OUT_OF_STOCK
   DISCONTINUED
+}
+
+// ================================
+// RALLY FOR RANGERS
+// ================================
+
+model Rally {
+  id              String      @id @default(cuid())
+  title           Json        // {"en": "Mongolia 2026", "mn": "Монгол 2026"}
+  slug            String
+  description     Json        // {"en": "Description", "mn": "Тайлбар"}
+
+  // Rally Details
+  startDate       DateTime
+  endDate         DateTime
+  location        Json        // {"en": "Mongolia", "mn": "Монгол"}
+  duration        Int         // in days
+  status          RallyStatus @default(DRAFT)
+
+  // Target Audience
+  targetAudience  Json        // ["riders", "non-riders", "volunteers"]
+  maxParticipants Int?
+  currentParticipants Int      @default(0)
+
+  // Content & Media
+  heroImage       String?
+  heroVideo       String?     // YouTube/Vimeo embed URL
+  gallery         Json?       // Array of image URLs
+  highlights      Json?       // Array of video URLs
+
+  // Impact & Partnerships
+  impactOverview  Json        // {"en": "Impact summary", "mn": "Нөлөөний дүгнэг"}
+  conservationActivities Json  // Array of activities
+  rangerPartnerships Json     // Array of partner info
+
+  // Application Settings
+  isRecruiting     Boolean  @default(true)
+  applicationDeadline DateTime?
+
+  // Financial (without Stripe)
+  cost             Json?       // {"amount": 5000, "currency": "USD"}
+  depositAmount    Json?
+
+  // SEO & Metadata
+  metaTitle        Json?
+  metaDescription  Json?
+  featuredImage    String?
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User        @relation("RallyCreator", fields: [createdById], references: [id])
+  updatedById     String?
+  updatedBy       User?       @relation("RallyUpdater", fields: [updatedById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  applications    RallyApplication[]
+  media           RallyMedia[]
+  stories         Story[]
+
+  @@unique([slug, tenantId])
+  @@map("rallies")
+}
+
+enum RallyStatus {
+  DRAFT
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+model RallyApplication {
+  id              String           @id @default(cuid())
+  rallyId         String
+  status          ApplicationStatus @default(PENDING)
+
+  // Personal Information (from passport)
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  country         String
+  city            String
+  address         Json?           // Street address, city, state/province, postal code
+  birthdate       DateTime?
+
+  // Passport & Travel
+  hasValidPassport Boolean        @default(false)
+
+  // Participation Type
+  isRider         Boolean         @default(true) // true = rider, false = supporter
+
+  // Rider Information
+  hasMotorcycleLicense Boolean?
+  ridingExperience Json?         // Years, terrain, bikes ridden, trip length, mileage
+  ridingVideoUrl  String?         // Video demonstrating riding experience
+
+  // Medical & Emergency
+  isMedicalProfessional Boolean? // Doctor or Wilderness First Responder/EMT
+  medicalCertificationType String?
+  medicalConditions Json?        // Medical conditions
+  dietaryRestrictions Json?      // Food allergies or dietary needs
+
+  // Emergency Contact
+  emergencyContactFirstName String
+  emergencyContactLastName  String
+  emergencyContactPhone     String
+  emergencyContactEmail     String
+  emergencyContactRelationship String
+
+  // Social Media
+  socialMediaLinks Json?          // Links to social media profiles
+
+  // Application Questions
+  motivation       Json           // Why do you want to participate?
+  travelExperience Json           // Describe international travel experience
+  futureLocations  Json?          // Where would you like to see RFR go next?
+  howHeard         String?        // How did you find out about the rally?
+
+  // Selected Rallies
+  selectedRallies  Json           // Array of rally IDs applicant is interested in
+
+  // Custom Form Responses (for rally-specific questions)
+  customResponses Json           @default("{}")
+
+  // Documents
+  documentUrls   Json?           // Array of file URLs (license, insurance, etc.)
+
+  // Payment Status (without Stripe)
+  depositPaid     Boolean         @default(false)
+  depositAmount   Float?
+  fullyPaid       Boolean         @default(false)
+  totalAmount     Float?
+  fundraisingStatus Json?         // Fundraising progress
+
+  // Terms & Conditions
+  agreedToTerms   Boolean         @default(false)
+  agreedToLiability Boolean       @default(false)
+
+  // Metadata
+  ipAddress       String?
+  userAgent       String?
+  source          String?         // How did they hear about us?
+  notes           Json?           @default("{}")
+
+  // Admin Review
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  reviewNotes     Json?
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rally           Rally       @relation(fields: [rallyId], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@unique([email, rallyId, tenantId])
+  @@map("rally_applications")
+}
+
+enum ApplicationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  WAITLIST
+  REJECTED
+  CANCELLED
+  CONFIRMED
+}
+
+model ParkPartnership {
+  id              String      @id @default(cuid())
+
+  // Park Information
+  parkName        Json        // {"en": "Gobi Gurvansaikhan NP", "mn": "Говь Гурвансайхан"}
+  country         String
+  location        Json        // {"en": "Mongolia", "mn": "Монгол", "coordinates": {...}}
+
+  // Partnership Details
+  establishedDate  DateTime?
+  partnershipType Json        // ["motorcycle_donation", "equipment_support", "training"]
+
+  // Impact
+  rangersCount    Int?
+  areaSize        Json?       // {"hectares": 15000, "acres": 37065}
+  keyChallenges   Json?       // Array of challenges
+
+  // Contact
+  contactPerson   String?
+  contactEmail    String?
+  contactPhone    String?
+
+  // Media
+  photos          Json?       // Array of photo URLs
+  videos          Json?       // Array of video URLs
+
+  // Related Rallies
+  rallies         Json?       // Array of rally info
+
+  // Status
+  status          PartnershipStatus @default(ACTIVE)
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@map("park_partnerships")
+}
+
+enum PartnershipStatus {
+  PROPOSED
+  ACTIVE
+  INACTIVE
+  COMPLETED
+}
+
+model Story {
+  id              String      @id @default(cuid())
+  rallyId         String?
+
+  // Story Information
+  title           Json        // {"en": "Title", "mn": "Гарчиг"}
+  slug            String
+  excerpt         Json?
+  content         Json        // Full content with blocks
+  type            StoryType   @default(IMPACT)
+
+  // Story Metadata
+  author          Json?       // Ranger or Rider name
+  role            String?     // "Ranger" or "Rider" or "Staff"
+
+  // Media
+  featuredImage   String?
+  gallery         Json?       // Array of images
+  videoUrl        String?     // YouTube/Vimeo URL
+
+  // Impact Data
+  beforeData      Json?       // {"motorcycles": 0, "rangers": 10}
+  afterData       Json?       // {"motorcycles": 5, "rangers": 10}
+  impactSummary   Json?
+
+  // Relationships
+  tags            Json?       // Array of tag references
+  relatedRallies  Json?       // Array of rally IDs
+
+  // SEO
+  metaTitle       Json?
+  metaDescription Json?
+
+  // Publishing
+  status          ContentStatus @default(DRAFT)
+  publishedAt     DateTime?
+
+  // Display
+  featured        Boolean     @default(false)
+  displayOrder    Int         @default(0)
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rally           Rally?      @relation(fields: [rallyId], references: [id])
+  createdById     String
+  createdBy       User        @relation("StoryCreator", fields: [createdById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@unique([slug, tenantId])
+  @@map("stories")
+}
+
+enum StoryType {
+  IMPACT
+  TESTIMONIAL
+  RANGER_PROFILE
+  RIDER_PROFILE
+  FIELD_MOMENT
+  BEFORE_AFTER
+  UPDATE
+  NEWS
+}
+
+model RallyMedia {
+  id              String      @id @default(cuid())
+  rallyId         String
+
+  // Media Information
+  type            MediaTypeR
+  url             String
+  thumbnailUrl    String?
+  title           Json?       // {"en": "Title", "mn": "Гарчиг"}
+  description     Json?
+
+  // Metadata
+  fileSize        Int?
+  dimensions      Json?       // {"width": 1920, "height": 1080}
+  duration        Int?        // For videos (seconds)
+
+  // Source
+  source          String?     // "upload", "youtube", "vimeo"
+  sourceUrl       String?     // Original URL if embedded
+
+  // Display Settings
+  isFeatured      Boolean     @default(false)
+  displayOrder    Int         @default(0)
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rally           Rally       @relation(fields: [rallyId], references: [id], onDelete: Cascade)
+  uploadedById    String
+  uploadedBy      User        @relation("RallyMediaUploader", fields: [uploadedById], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@map("rally_media")
+}
+
+enum MediaTypeR {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  THUMBNAIL
+}
+
+model NewsletterSubscription {
+  id              String      @id @default(cuid())
+
+  email           String
+  firstName       String?
+  lastName        String?
+
+  // Preferences
+  interests       Json?       // ["upcoming_rallies", "impact_stories", "events"]
+
+  // Source Tracking
+  source          String?     // "homepage", "rally_page", "application"
+
+  // Status
+  status          SubscriptionStatus @default(ACTIVE)
+
+  // Email Marketing (for future integration)
+  mailchimpId     String?
+  sendGridId      String?
+
+  // Statistics
+  openCount       Int         @default(0)
+  clickCount      Int         @default(0)
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+  unsubscribedAt  DateTime?
+
+  @@unique([email, tenantId])
+  @@map("newsletter_subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+  PENDING
+}
+
+// ============================================
+// PARK NOMINATION FORM
+// ============================================
+
+model ParkNomination {
+  id              String      @id @default(cuid())
+
+  // Park Information
+  country         String
+  parkNames       Json        // Array of park names
+  parkWebsites    Json?       // Array of park websites
+
+  // Primary Contact of the Park
+  parkContactFirstName  String
+  parkContactLastName   String
+  parkContactEmail      String
+
+  // Partner Organization Information
+  partnerOrganizationName    String
+  partnerContactFirstName    String
+  partnerContactLastName     String
+  partnerContactEmail        String
+  partnerWebsite             String?
+  partnerAddress             Json?       // Street address, city, state/province, postal code
+
+  // Mission & Support
+  primaryMission            Json        // Primary mission of the park
+  motorcycleSupport         Json        // 3 ways motorcycles will help
+  partnerLogisticsSupport   Json?       // How partner org can support logistics
+
+  // Additional Information
+  otherInfo        Json?
+  howHeard         String?     // How did you hear about Rally for Rangers?
+
+  // Metadata
+  ipAddress        String?
+  userAgent        String?
+  source           String?
+
+  // Status
+  status          NominationStatus @default(PENDING)
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  reviewNotes     Json?
+
+  // Multi-tenant & Timestamps
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  @@map("park_nominations")
+}
+
+enum NominationStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SELECTED
+  NOT_SELECTED
 }

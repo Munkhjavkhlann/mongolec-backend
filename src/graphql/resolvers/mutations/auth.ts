@@ -2,6 +2,9 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { GraphQLContext } from '@/types';
 import { createLogger } from '@/utils/logger';
+import { hashEmail } from '@/utils';
+import { AuthenticationError, NotFoundError, ValidationError, ConflictError } from '@/utils/errors';
+import type { LoginArgs, RegisterArgs } from '@/graphql/types/args';
 
 const logger = createLogger('AUTH_MUTATIONS');
 
@@ -19,7 +22,7 @@ export const authMutations = {
   /**
    * User login with email and password
    */
-  login: async (_parent: any, args: any, context: GraphQLContext) => {
+  login: async (_parent: unknown, args: LoginArgs, context: GraphQLContext) => {
     try {
       const { email, password } = args;
 
@@ -35,18 +38,18 @@ export const authMutations = {
       });
 
       if (!user) {
-        throw new Error('Invalid email or password');
+        throw new AuthenticationError('Invalid credentials');
       }
 
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
-        throw new Error('Invalid email or password');
+        throw new AuthenticationError('Invalid credentials');
       }
 
       // Check if tenant is active
       if (user.tenant.status !== 'ACTIVE') {
-        throw new Error('Account is suspended');
+        throw new AuthenticationError('Account is suspended');
       }
 
       // Generate JWT token
@@ -75,7 +78,7 @@ export const authMutations = {
         path: '/',
       });
 
-      logger.info(`User logged in: ${user.email}`);
+      logger.info(`User logged in: ${hashEmail(user.email)}`);
 
       return {
         success: true,
@@ -94,7 +97,7 @@ export const authMutations = {
   /**
    * User registration
    */
-  register: async (_parent: any, args: any, context: GraphQLContext) => {
+  register: async (_parent: unknown, args: RegisterArgs, context: GraphQLContext) => {
     try {
       const { email, password, firstName, lastName, tenantSlug } = args;
 
@@ -107,7 +110,7 @@ export const authMutations = {
       });
 
       if (!tenant) {
-        throw new Error('Organization not found');
+        throw new NotFoundError('Organization');
       }
 
       // Check if user already exists
@@ -119,13 +122,13 @@ export const authMutations = {
       });
 
       if (existingUser) {
-        throw new Error('User already exists with this email');
+        throw new ConflictError('User already exists with this email');
       }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Create user
+      // Create user (inactive, requires admin approval)
       const user = await context.prisma.user.create({
         data: {
           email: email.toLowerCase(),
@@ -133,38 +136,18 @@ export const authMutations = {
           lastName,
           password: hashedPassword,
           tenantId: tenant.id,
-          isActive: true,
+          isActive: false,  // Requires admin approval
         },
         include: {
           tenant: true,
         },
       });
 
-      // Generate JWT token
-      const token = jwt.sign(
-        {
-          id: user.id,
-          email: user.email,
-          tenantId: user.tenantId,
-        } as JWTPayload,
-        process.env.JWT_SECRET!,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
-      );
-
-      // Set httpOnly cookie
-      context.res.cookie('auth-token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        path: '/',
-      });
-
-      logger.info(`User registered: ${user.email}`);
+      logger.info(`User registered (pending approval): ${hashEmail(user.email)}`);
 
       return {
         success: true,
-        message: 'Registration successful',
+        message: 'Registration successful. Your account is pending admin approval.',
         user: {
           ...user,
           password: undefined,
@@ -179,21 +162,16 @@ export const authMutations = {
   /**
    * User logout - clears the httpOnly cookie
    */
-  logout: async (_parent: any, _args: any, context: GraphQLContext) => {
-    try {
-      context.res.clearCookie('auth-token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-      });
+  logout: async (_parent: unknown, _args: unknown, context: GraphQLContext) => {
+    context.res.clearCookie('auth-token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
 
-      logger.info('User logged out successfully');
+    logger.info('User logged out successfully');
 
-      return true;
-    } catch (error) {
-      logger.error('Logout failed', error as Error);
-      throw new Error('Logout failed');
-    }
+    return true;
   },
 };

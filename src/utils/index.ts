@@ -2,6 +2,30 @@
  * Utility functions for the application
  */
 
+import { createHash } from 'crypto';
+
+/**
+ * Hash an email address using SHA-256 for security logging
+ * This allows tracing without exposing PII in logs
+ */
+export function hashEmail(email: string): string {
+  return createHash('sha256').update(email.toLowerCase().trim()).digest('hex').substring(0, 16);
+}
+
+/**
+ * Obfuscate an email for debugging purposes
+ * Shows first character and domain, e.g., "j***@example.com"
+ */
+export function obfuscateEmail(email: string): string {
+  const [localPart, domain] = email.toLowerCase().split('@');
+  if (!domain) return '***@***';
+
+  const firstChar = localPart.charAt(0);
+  const stars = '*'.repeat(Math.min(localPart.length - 1, 3));
+
+  return `${firstChar}${stars}@${domain}`;
+}
+
 /**
  * Generate a random string of specified length
  */

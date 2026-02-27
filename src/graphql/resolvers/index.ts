@@ -2,18 +2,34 @@ import { GraphQLScalarType, Kind } from 'graphql';
 
 // Import queries
 import { authQueries } from './queries/auth';
+import { userQueries } from './queries/user';
 import { tenantQueries } from './queries/tenant';
 import { newsQueries } from './queries/news';
 import { merchQueries } from './queries/merch';
 import { contentQueries } from './queries/content';
+import { rallyQueries } from './queries/rally';
+import { applicationQueries } from './queries/application';
+import { nominationQueries } from './queries/nomination';
+import { storyQueries } from './queries/story';
+import { mediaQueries } from './queries/media';
+import { partnershipQueries } from './queries/partnership';
+import { newsletterQueries } from './queries/newsletter';
 
 // Import mutations
 import { authMutations } from './mutations/auth';
+import { userMutations } from './mutations/user';
 import { newsMutations } from './mutations/news';
 import { merchMutations } from './mutations/merch';
 import { contentMutations } from './mutations/content';
 import { tenantMutations } from './mutations/tenant';
 import { uploadResolvers } from './mutations/upload';
+import { rallyMutations } from './mutations/rally';
+import { applicationMutations } from './mutations/application';
+import { nominationMutations } from './mutations/nomination';
+import { storyMutations } from './mutations/story';
+import { mediaMutations } from './mutations/media';
+import { partnershipMutations } from './mutations/partnership';
+import { newsletterMutations } from './mutations/newsletter';
 
 /**
  * Custom scalar resolvers
@@ -87,21 +103,37 @@ export const resolvers = {
 
     // Domain queries
     ...authQueries,
+    ...userQueries,
     ...tenantQueries,
     ...newsQueries,
     ...merchQueries,
     ...contentQueries,
+    ...rallyQueries,
+    ...applicationQueries,
+    ...nominationQueries,
+    ...storyQueries,
+    ...mediaQueries,
+    ...partnershipQueries,
+    ...newsletterQueries,
   },
 
   // Root Mutation
   Mutation: {
     // Domain mutations
     ...authMutations,
+    ...userMutations,
     ...tenantMutations,
     ...newsMutations,
     ...merchMutations, // Includes variant mutations
     ...contentMutations,
     ...uploadResolvers.Mutation,
+    ...rallyMutations,
+    ...applicationMutations,
+    ...nominationMutations,
+    ...storyMutations,
+    ...mediaMutations,
+    ...partnershipMutations,
+    ...newsletterMutations,
   },
 };
 

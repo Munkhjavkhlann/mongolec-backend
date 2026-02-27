@@ -17,7 +17,7 @@ import { redisClient } from '@/database/redis';
 import { createLogger, logRequest } from '@/utils/logger';
 import { AppError, ErrorType } from '@/types';
 import { authenticate, optionalAuthenticate } from '@/auth';
-import { csrfProtection, graphqlRateLimit } from '@/middleware';
+import { csrfProtection, graphqlRateLimit, sanitizeBody } from '@/middleware';
 
 const logger = createLogger('SERVER');
 
@@ -149,6 +149,9 @@ export class GraphQLServer {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+    // Sanitize request body to prevent XSS attacks
+    this.app.use(sanitizeBody);
+
     // Custom request logging with response time
     this.app.use((req, res, next) => {
       const start = Date.now();
@@ -235,7 +238,13 @@ graphql_operations_total 0
     }
 
     // Apply CSRF protection to GraphQL endpoint
-    this.app.use('/graphql', csrfProtection);
+    // Enable in production, disable in development for Apollo Sandbox
+    if (config.isProduction) {
+      this.app.use('/graphql', csrfProtection);
+      logger.info('CSRF protection enabled for GraphQL endpoint');
+    } else {
+      logger.warn('CSRF protection disabled (development mode)');
+    }
 
     // Apply rate limiting to GraphQL endpoint
     this.app.use('/graphql', graphqlRateLimit);

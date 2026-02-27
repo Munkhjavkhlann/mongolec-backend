@@ -1,8 +1,34 @@
 import { GraphQLContext } from '@/types';
 import { createLogger } from '@/utils/logger';
 import { slugify } from '@/utils/index';
+import {
+  authenticated,
+  withPermission
+} from '@/graphql/decorators/auth';
+import {
+  NotFoundError,
+  ValidationError
+} from '@/utils/errors';
+import type {
+  CreateMerchProductArgs,
+  UpdateMerchProductArgs,
+  DeleteMerchProductArgs,
+  MerchProductInput,
+  CreateMerchCategoryArgs,
+  UpdateMerchCategoryArgs,
+} from '@/graphql/types/args';
 
 const logger = createLogger('MERCH_MUTATIONS');
+
+// Permission constants
+const PERMISSIONS = {
+  CREATE_PRODUCT: 'merch:create',
+  UPDATE_PRODUCT: 'merch:update',
+  DELETE_PRODUCT: 'merch:delete',
+  CREATE_CATEGORY: 'merch:category:create',
+  UPDATE_CATEGORY: 'merch:category:update',
+  DELETE_CATEGORY: 'merch:category:delete',
+} as const;
 
 /**
  * Merch Mutation Resolvers
@@ -12,14 +38,10 @@ export const merchMutations = {
   /**
    * Create new merchandise product
    */
-  createMerchProduct: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
-      const { input } = args;
+  createMerchProduct: withPermission(PERMISSIONS.CREATE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: CreateMerchProductArgs, context: GraphQLContext) => {
+      try {
+        const { input } = args;
 
       // Extract variants from input
       const { variants, ...productData } = input;
@@ -71,20 +93,15 @@ export const merchMutations = {
       return product;
     } catch (error) {
       logger.error('Error creating merch product', error as Error);
-      throw new Error('Failed to create merchandise product');
+      throw error;
     }
-  },
+  }),
 
   /**
    * Update existing merchandise product
    */
-  updateMerchProduct: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  updateMerchProduct: withPermission(PERMISSIONS.UPDATE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: UpdateMerchProductArgs, context: GraphQLContext) => {
       const { id, input } = args;
 
       // Check if product exists
@@ -93,7 +110,7 @@ export const merchMutations = {
       });
 
       if (!existingProduct || existingProduct.deletedAt) {
-        throw new Error('Merchandise product not found');
+        throw new NotFoundError('Merchandise product');
       }
 
       // Extract variants from input
@@ -157,20 +174,15 @@ export const merchMutations = {
       return product;
     } catch (error) {
       logger.error('Error updating merch product', error as Error);
-      throw new Error('Failed to update merchandise product');
+      throw error;
     }
-  },
+  })),
 
   /**
    * Delete merchandise product (soft delete)
    */
-  deleteMerchProduct: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  deleteMerchProduct: withPermission(PERMISSIONS.DELETE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: DeleteMerchProductArgs, context: GraphQLContext) => {
       const { id } = args;
 
       const product = await context.prisma.merchProduct.findUnique({
@@ -178,7 +190,7 @@ export const merchMutations = {
       });
 
       if (!product || product.deletedAt) {
-        throw new Error('Merchandise product not found');
+        throw new NotFoundError('Merchandise product');
       }
 
       await context.prisma.merchProduct.update({
@@ -193,20 +205,15 @@ export const merchMutations = {
       return true;
     } catch (error) {
       logger.error('Error deleting merch product', error as Error);
-      throw new Error('Failed to delete merchandise product');
+      throw error;
     }
-  },
+  })),
 
   /**
    * Create individual merchandise variant
    */
-  createMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  createMerchVariant: withPermission(PERMISSIONS.CREATE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: { productId: string; input: any }, context: GraphQLContext) => {
       const { productId, input } = args;
 
       // Check if product exists
@@ -215,7 +222,7 @@ export const merchMutations = {
       });
 
       if (!product || product.deletedAt) {
-        throw new Error('Product not found');
+        throw new NotFoundError('Product');
       }
 
       const variant = await context.prisma.merchVariant.create({
@@ -233,20 +240,15 @@ export const merchMutations = {
       return variant;
     } catch (error) {
       logger.error('Error creating variant', error as Error);
-      throw new Error('Failed to create variant');
+      throw error;
     }
-  },
+  })),
 
   /**
    * Update merchandise variant
    */
-  updateMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  updateMerchVariant: withPermission(PERMISSIONS.UPDATE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: { id: string; input: any }, context: GraphQLContext) => {
       const { id, input } = args;
 
       const variant = await context.prisma.merchVariant.update({
@@ -258,20 +260,15 @@ export const merchMutations = {
       return variant;
     } catch (error) {
       logger.error('Error updating variant', error as Error);
-      throw new Error('Failed to update variant');
+      throw error;
     }
-  },
+  })),
 
   /**
    * Delete merchandise variant
    */
-  deleteMerchVariant: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  deleteMerchVariant: withPermission(PERMISSIONS.DELETE_PRODUCT)(authenticated(
+    async (_parent: unknown, args: { id: string }, context: GraphQLContext) => {
       const { id } = args;
 
       await context.prisma.merchVariant.update({
@@ -283,20 +280,15 @@ export const merchMutations = {
       return true;
     } catch (error) {
       logger.error('Error deleting variant', error as Error);
-      throw new Error('Failed to delete variant');
+      throw error;
     }
-  },
+  })),
 
   /**
    * Create new merchandise category
    */
-  createMerchCategory: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  createMerchCategory: withPermission(PERMISSIONS.CREATE_CATEGORY)(authenticated(
+    async (_parent: unknown, args: CreateMerchCategoryArgs, context: GraphQLContext) => {
       const { input } = args;
 
       // Generate slug if not provided
@@ -322,20 +314,15 @@ export const merchMutations = {
       return category;
     } catch (error) {
       logger.error('Error creating merch category', error as Error);
-      throw new Error('Failed to create merchandise category');
+      throw error;
     }
-  },
+  )),
 
   /**
    * Update existing merchandise category
    */
-  updateMerchCategory: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  updateMerchCategory: withPermission(PERMISSIONS.UPDATE_CATEGORY)(authenticated(
+    async (_parent: unknown, args: UpdateMerchCategoryArgs, context: GraphQLContext) => {
       const { id, input } = args;
 
       const category = await context.prisma.merchCategory.update({
@@ -353,20 +340,15 @@ export const merchMutations = {
       return category;
     } catch (error) {
       logger.error('Error updating merch category', error as Error);
-      throw new Error('Failed to update merchandise category');
+      throw error;
     }
-  },
+  )),
 
   /**
    * Delete merchandise category (soft delete)
    */
-  deleteMerchCategory: async (_parent: any, args: any, context: GraphQLContext) => {
-    try {
-      // Check authentication
-      if (!context.user) {
-        throw new Error('Not authenticated');
-      }
-
+  deleteMerchCategory: withPermission(PERMISSIONS.DELETE_CATEGORY)(authenticated(
+    async (_parent: unknown, args: { id: string }, context: GraphQLContext) => {
       const { id } = args;
 
       // Check if category has products
@@ -390,9 +372,7 @@ export const merchMutations = {
       return true;
     } catch (error) {
       logger.error('Error deleting merch category', error as Error);
-      throw new Error(
-        error instanceof Error ? error.message : 'Failed to delete merchandise category'
-      );
+      throw error;
     }
-  },
+  })),
 };

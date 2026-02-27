@@ -97,7 +97,7 @@ export const authenticate = async (
     // Check if user is active
     if (!user.isActive) {
       throw new AppError(
-        'User account is inactive',
+        'Your account is inactive or pending admin approval',
         ErrorType.AUTHENTICATION_ERROR,
         401
       );
