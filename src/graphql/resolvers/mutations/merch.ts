@@ -102,6 +102,7 @@ export const merchMutations = {
    */
   updateMerchProduct: withPermission(PERMISSIONS.UPDATE_PRODUCT)(authenticated(
     async (_parent: unknown, args: UpdateMerchProductArgs, context: GraphQLContext) => {
+      try {
       const { id, input } = args;
 
       // Check if product exists
@@ -183,6 +184,7 @@ export const merchMutations = {
    */
   deleteMerchProduct: withPermission(PERMISSIONS.DELETE_PRODUCT)(authenticated(
     async (_parent: unknown, args: DeleteMerchProductArgs, context: GraphQLContext) => {
+      try {
       const { id } = args;
 
       const product = await context.prisma.merchProduct.findUnique({
@@ -214,6 +216,7 @@ export const merchMutations = {
    */
   createMerchVariant: withPermission(PERMISSIONS.CREATE_PRODUCT)(authenticated(
     async (_parent: unknown, args: { productId: string; input: any }, context: GraphQLContext) => {
+      try {
       const { productId, input } = args;
 
       // Check if product exists
@@ -249,6 +252,7 @@ export const merchMutations = {
    */
   updateMerchVariant: withPermission(PERMISSIONS.UPDATE_PRODUCT)(authenticated(
     async (_parent: unknown, args: { id: string; input: any }, context: GraphQLContext) => {
+      try {
       const { id, input } = args;
 
       const variant = await context.prisma.merchVariant.update({
@@ -269,6 +273,7 @@ export const merchMutations = {
    */
   deleteMerchVariant: withPermission(PERMISSIONS.DELETE_PRODUCT)(authenticated(
     async (_parent: unknown, args: { id: string }, context: GraphQLContext) => {
+      try {
       const { id } = args;
 
       await context.prisma.merchVariant.update({
@@ -289,6 +294,7 @@ export const merchMutations = {
    */
   createMerchCategory: withPermission(PERMISSIONS.CREATE_CATEGORY)(authenticated(
     async (_parent: unknown, args: CreateMerchCategoryArgs, context: GraphQLContext) => {
+      try {
       const { input } = args;
 
       // Generate slug if not provided
@@ -323,6 +329,7 @@ export const merchMutations = {
    */
   updateMerchCategory: withPermission(PERMISSIONS.UPDATE_CATEGORY)(authenticated(
     async (_parent: unknown, args: UpdateMerchCategoryArgs, context: GraphQLContext) => {
+      try {
       const { id, input } = args;
 
       const category = await context.prisma.merchCategory.update({
@@ -349,6 +356,7 @@ export const merchMutations = {
    */
   deleteMerchCategory: withPermission(PERMISSIONS.DELETE_CATEGORY)(authenticated(
     async (_parent: unknown, args: { id: string }, context: GraphQLContext) => {
+      try {
       const { id } = args;
 
       // Check if category has products
