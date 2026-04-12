@@ -1,146 +1,36 @@
-name: Deploy to Server
+name: Deploy Backend to Production
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: munkhjavkhlann/mongolec-backend
+    branches: [main]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v1
-      with:
-        bun-version: latest
-
-    - name: Install dependencies
-      run: bun install
-
-    - name: Generate Prisma Client
-      run: bunx prisma generate
-
-    - name: Run linter
-      run: bun run lint || echo "No lint script"
-
-    - name: Run tests
-      run: bun test || echo "No tests yet"
-
-  build-docker:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile.prod
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-
   deploy:
-    needs: build-docker
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
-        port: ${{ secrets.SERVER_PORT || 22 }}
-        script: |
-          # Create docker-compose.prod.yml
-          sudo tee /opt/mongolec/docker-compose.prod.yml > /dev/null <<'EOF'
-          version: '3.8'
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-          services:
-            backend:
-              image: ghcr.io/munkhjavkhlann/mongolec-backend:latest
-              container_name: mongolec-backend
-              restart: unless-stopped
-              ports:
-                - "${PORT:-4000}:4000"
-              env_file:
-                - .env
-              healthcheck:
-                test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
-                interval: 30s
-                timeout: 10s
-                retries: 3
-                start_period: 40s
-              networks:
-                - mongolec-network
+      - name: Sync files to VPS
+        run: |
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude 'dist' \
+            --exclude 'logs' \
+            ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/apps/mongolec-backend/
 
-          networks:
-            mongolec-network:
-              driver: bridge
-          EOF
-
-          cd /opt/mongolec
-
-          # Create .env file from secrets
-          sudo tee /opt/mongolec/.env > /dev/null <<EOF
-          B2_ENDPOINT=${{ secrets.B2_ENDPOINT }}
-          B2_REGION=${{ secrets.B2_REGION }}
-          B2_ACCESS_KEY_ID=${{ secrets.B2_ACCESS_KEY_ID }}
-          B2_SECRET_ACCESS_KEY=${{ secrets.B2_SECRET_ACCESS_KEY }}
-          B2_BUCKET_NAME=${{ secrets.B2_BUCKET_NAME }}
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          REDIS_URL=${{ secrets.REDIS_URL }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          PORT=4000
-          EOF
-
-          # Pull latest image
-          echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          sudo docker pull ghcr.io/munkhjavkhlann/mongolec-backend:latest
-
-          # Stop and remove old container
-          sudo docker-compose -f docker-compose.prod.yml down || true
-
-          # Start new container
-          sudo docker-compose -f docker-compose.prod.yml up -d
-
-          # Clean up old images
-          sudo docker image prune -af
+      - name: Build and deploy on VPS
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+            cd ~/apps/mongolec-backend &&
+            docker compose -f docker-compose.prod.yml up -d --build
+          "
