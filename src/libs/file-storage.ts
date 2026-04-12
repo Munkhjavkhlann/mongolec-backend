@@ -8,10 +8,6 @@ const logger = createLogger('FILE_STORAGE');
 
 const { B2_BUCKET_NAME, B2_PUBLIC_URL, MAX_FILE_SIZE } = process.env;
 
-if (!B2_BUCKET_NAME || !B2_PUBLIC_URL) {
-    throw new Error("Backblaze B2 bucket name or public URL are not configured.");
-}
-
 // Maximum file size (10MB default, can be overridden via env)
 const MAX_UPLOAD_SIZE = parseInt(MAX_FILE_SIZE || '10485760', 10); // 10MB in bytes
 
@@ -153,6 +149,10 @@ export const getPresignedUploadUrl = async (fileType: string): Promise<Presigned
   });
 
   // The pre-signed URL is valid for 1 hour
+  if (!s3Client) {
+    throw new Error("File storage is not configured.");
+  }
+
   const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
 
   // Construct the public URL for the file once uploaded
