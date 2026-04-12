@@ -19,9 +19,6 @@ COPY . .
 # Generate Prisma Client with timeout
 RUN bunx prisma generate --generator client
 
-# Build TypeScript
-RUN bun run build || echo "No build script, using source"
-
 # Production stage
 FROM oven/bun:1-slim
 
@@ -38,7 +35,6 @@ COPY bun.lockb* ./
 RUN bun install --production --frozen-lockfile
 
 # Copy built app from builder
-COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
