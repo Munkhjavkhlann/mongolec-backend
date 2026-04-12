@@ -95,7 +95,7 @@ export const merchMutations = {
       logger.error('Error creating merch product', error as Error);
       throw error;
     }
-  }),
+  })),
 
   /**
    * Update existing merchandise product
@@ -322,7 +322,7 @@ export const merchMutations = {
       logger.error('Error creating merch category', error as Error);
       throw error;
     }
-  )),
+  })),
 
   /**
    * Update existing merchandise category
@@ -349,7 +349,7 @@ export const merchMutations = {
       logger.error('Error updating merch category', error as Error);
       throw error;
     }
-  )),
+  })),
 
   /**
    * Delete merchandise category (soft delete)
