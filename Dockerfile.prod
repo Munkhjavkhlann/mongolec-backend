@@ -1,53 +1,19 @@
-# Multi-stage build for production
-FROM oven/bun:1 AS builder
-
-# Install OpenSSL for Prisma in builder stage
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY bun.lockb* ./
-
-# Install dependencies
-RUN bun install --frozen-lockfile
-
-# Copy source code
-COPY . .
-
-# Generate Prisma Client with timeout
-RUN bunx prisma generate --generator client
-
-# Production stage
 FROM oven/bun:1-slim
 
-# Install OpenSSL for Prisma
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY bun.lockb* ./
-
-# Install production dependencies only
+COPY package*.json bun.lockb* ./
 RUN bun install --production --frozen-lockfile
 
-# Copy built app from builder
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY . .
 
-# Copy source and config files
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
+RUN bunx prisma generate --generator client
 
-# Expose port
 EXPOSE 4000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
   CMD bun run -e "fetch('http://localhost:4000/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
-# Start app (database schema already exists from prisma db push)
 CMD ["bun", "run", "src/index.ts"]
