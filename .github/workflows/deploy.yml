@@ -37,13 +37,28 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 10m
-          envs: GHCR_TOKEN,GHCR_USERNAME
+          envs: GHCR_TOKEN,GHCR_USERNAME,B2_ENDPOINT,B2_REGION,B2_ACCESS_KEY_ID,B2_SECRET_ACCESS_KEY,B2_BUCKET_NAME
           script: |
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             cd ~/apps/mongolec-backend
-            git pull origin main
+
+            # Inject B2 secrets into .env (add or update each line)
+            for var in B2_ENDPOINT B2_REGION B2_ACCESS_KEY_ID B2_SECRET_ACCESS_KEY B2_BUCKET_NAME; do
+              value=$(eval echo "\$$var")
+              if grep -q "^${var}=" .env; then
+                sed -i "s|^${var}=.*|${var}=${value}|" .env
+              else
+                echo "${var}=${value}" >> .env
+              fi
+            done
+
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+          B2_REGION: ${{ secrets.B2_REGION }}
+          B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
+          B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
