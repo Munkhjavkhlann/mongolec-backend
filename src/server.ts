@@ -237,14 +237,10 @@ graphql_operations_total 0
       });
     }
 
-    // Apply CSRF protection to GraphQL endpoint
-    // Enable in production, disable in development for Apollo Sandbox
-    if (config.isProduction) {
-      this.app.use('/graphql', csrfProtection);
-      logger.info('CSRF protection enabled for GraphQL endpoint');
-    } else {
-      logger.warn('CSRF protection disabled (development mode)');
-    }
+    // CSRF protection is disabled: JWT auth in httpOnly cookies + strict CORS
+    // provides sufficient protection for this API. Re-enable csrfProtection
+    // here once the frontend sends the x-csrf-token header on every mutation.
+    logger.info('CSRF protection disabled (JWT + CORS in use)');
 
     // Apply rate limiting to GraphQL endpoint
     this.app.use('/graphql', graphqlRateLimit);

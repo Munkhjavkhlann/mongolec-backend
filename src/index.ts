@@ -51,7 +51,8 @@ async function main() {
       logger.error('Unhandled Rejection', new Error(String(reason)), {
         promise: promise.toString(),
       });
-      process.exit(1);
+      // Log but do not exit — unhandled rejections from middleware errors
+      // should not kill the entire server process.
     });
 
     logger.info('🚀 Mongolec GraphQL Backend is ready!');

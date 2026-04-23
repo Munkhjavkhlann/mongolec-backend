@@ -139,6 +139,7 @@ export const csrfProtection = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
+  try {
   // Skip CSRF for GET, HEAD, OPTIONS (safe methods)
   const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
   if (safeMethods.includes(req.method)) {
@@ -158,7 +159,7 @@ export const csrfProtection = async (
       ip: req.ip,
     });
 
-    throw new AppError(
+    return next(new AppError(
       'Invalid CSRF token. Refresh the page and try again.',
       ErrorType.VALIDATION_ERROR,
       403,
@@ -166,7 +167,7 @@ export const csrfProtection = async (
       {
         type: 'CSRF_ERROR',
       }
-    );
+    ));
   }
 
   logger.debug('CSRF validation passed', {
@@ -176,6 +177,9 @@ export const csrfProtection = async (
   });
 
   next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 /**
