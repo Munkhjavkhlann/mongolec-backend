@@ -37,13 +37,13 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           command_timeout: 10m
-          envs: GHCR_TOKEN,GHCR_USERNAME,B2_ENDPOINT,B2_REGION,B2_ACCESS_KEY_ID,B2_SECRET_ACCESS_KEY,B2_BUCKET_NAME
+          envs: GHCR_TOKEN,GHCR_USERNAME,B2_ENDPOINT,B2_REGION,B2_ACCESS_KEY_ID,B2_SECRET_ACCESS_KEY,B2_BUCKET_NAME,CORS_ORIGIN
           script: |
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             cd ~/apps/mongolec-backend
 
-            # Inject B2 secrets into .env (add or update each line)
-            for var in B2_ENDPOINT B2_REGION B2_ACCESS_KEY_ID B2_SECRET_ACCESS_KEY B2_BUCKET_NAME; do
+            # Inject secrets into .env (add or update each line)
+            for var in B2_ENDPOINT B2_REGION B2_ACCESS_KEY_ID B2_SECRET_ACCESS_KEY B2_BUCKET_NAME CORS_ORIGIN; do
               value=$(eval echo "\$$var")
               if grep -q "^${var}=" .env; then
                 sed -i "s|^${var}=.*|${var}=${value}|" .env
@@ -62,3 +62,4 @@ jobs:
           B2_ACCESS_KEY_ID: ${{ secrets.B2_ACCESS_KEY_ID }}
           B2_SECRET_ACCESS_KEY: ${{ secrets.B2_SECRET_ACCESS_KEY }}
           B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+          CORS_ORIGIN: ${{ secrets.CORS_ORIGIN }}

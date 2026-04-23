@@ -88,8 +88,11 @@ export class GraphQLServer {
           locations: formattedError.locations,
         });
 
+        // Get the original error (Apollo wraps custom errors in GraphQLError)
+        const originalError = (error as any).originalError;
+
         // Don't expose internal errors in production
-        if (config.isProduction && !(error instanceof AppError)) {
+        if (config.isProduction && !(originalError instanceof AppError)) {
           return {
             message: 'Internal server error',
             code: 'INTERNAL_ERROR',
@@ -98,12 +101,23 @@ export class GraphQLServer {
           };
         }
 
+        // For AppError instances, return the proper error type
+        if (originalError instanceof AppError) {
+          return {
+            message: formattedError.message,
+            code: originalError.type,
+            path: formattedError.path,
+            locations: formattedError.locations,
+            ...(config.isDevelopment && { stack: formattedError.stack }),
+          };
+        }
+
         return {
           message: formattedError.message,
           code: (error as any)?.code || 'UNKNOWN_ERROR',
           path: formattedError.path,
           locations: formattedError.locations,
-          ...(config.isDevelopment && { stack: (formattedError as any).stack }),
+          ...(config.isDevelopment && { stack: formattedError.stack }),
         };
       },
 
