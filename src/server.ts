@@ -122,7 +122,7 @@ export class GraphQLServer {
       },
 
       // Introspection enabled for GraphQL clients (Postman, Insomnia, etc.)
-      introspection: true,
+      introspection: config.isDevelopment,
     });
   }
 
