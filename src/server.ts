@@ -17,7 +17,7 @@ import { redisClient } from '@/database/redis';
 import { createLogger, logRequest } from '@/utils/logger';
 import { AppError, ErrorType } from '@/types';
 import { authenticate, optionalAuthenticate } from '@/auth';
-import { csrfProtection, graphqlRateLimit, sanitizeBody } from '@/middleware';
+import { csrfProtection, graphqlRateLimit, authRateLimit, sanitizeBody } from '@/middleware';
 
 const logger = createLogger('SERVER');
 
@@ -258,6 +258,22 @@ graphql_operations_total 0
 
     // Apply rate limiting to GraphQL endpoint
     this.app.use('/graphql', graphqlRateLimit);
+
+    // Stricter rate limit for auth mutations (login, register, forgotPassword)
+    this.app.use('/graphql', (req, res, next) => {
+      const body = req.body as { operationName?: string; query?: string };
+      const operation = body?.operationName?.toLowerCase() ?? '';
+      const query = body?.query ?? '';
+      const isAuthOp =
+        operation === 'login' ||
+        operation === 'register' ||
+        operation === 'forgotpassword' ||
+        /mutation\s*\{?\s*(login|register|forgotPassword)/i.test(query);
+      if (isAuthOp) {
+        return authRateLimit(req, res, next);
+      }
+      next();
+    });
 
     // GraphQL endpoint with context creation (Apollo's default landing page auto-serves)
     this.app.use('/graphql',
