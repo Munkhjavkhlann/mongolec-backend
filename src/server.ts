@@ -108,7 +108,7 @@ export class GraphQLServer {
             code: originalError.type,
             path: formattedError.path,
             locations: formattedError.locations,
-            ...(config.isDevelopment && { stack: formattedError.stack }),
+            ...(config.isDevelopment && { stack: (error as Error)?.stack }),
           };
         }
 
@@ -117,7 +117,7 @@ export class GraphQLServer {
           code: (error as any)?.code || 'UNKNOWN_ERROR',
           path: formattedError.path,
           locations: formattedError.locations,
-          ...(config.isDevelopment && { stack: formattedError.stack }),
+          ...(config.isDevelopment && { stack: (error as Error)?.stack }),
         };
       },
 
@@ -327,6 +327,11 @@ graphql_operations_total 0
    */
   async start(): Promise<void> {
     try {
+      // Validate JWT_SECRET before starting server
+      if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-super-secret-jwt-key-change-this') {
+        throw new Error('JWT_SECRET is not set or is still the default insecure value. Run: openssl rand -hex 64');
+      }
+
       logger.info('Starting GraphQL server...');
 
       // Connect to database
