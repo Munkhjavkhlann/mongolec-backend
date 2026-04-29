@@ -384,3 +384,19 @@ export const checkOwnerOrPermission = (
     );
   }
 };
+
+/**
+ * GraphQL tenant access assertion helper
+ * Ensures user has a valid tenant context, throws if missing
+ */
+export const assertTenantAccess = (context: { user?: { tenantId?: string } }): string => {
+  const tenantId = context.user?.tenantId;
+  if (!tenantId) {
+    throw new AppError(
+      'Tenant context missing',
+      ErrorType.AUTHENTICATION_ERROR,
+      401
+    );
+  }
+  return tenantId;
+};

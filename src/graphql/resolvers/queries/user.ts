@@ -1,6 +1,6 @@
 import { GraphQLContext } from '@/types';
 import { createLogger } from '@/utils/logger';
-import { checkPermission } from '@/auth';
+import { checkPermission, assertTenantAccess } from '@/auth';
 
 const logger = createLogger('USER_QUERIES');
 
@@ -19,9 +19,10 @@ export const userQueries = {
       checkPermission(context, 'user:read');
 
       const { page = 1, limit = 20, search } = args;
+      const tenantId = assertTenantAccess(context);
 
       const where: any = {
-        tenantId: context.user?.tenantId,
+        tenantId,
         isActive: false,
         approvedAt: null,
         deletedAt: null,
@@ -64,6 +65,10 @@ export const userQueries = {
           limit,
           total,
           totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          perPage: limit,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPreviousPage: page > 1,
         },
       };
     } catch (error) {
@@ -82,9 +87,10 @@ export const userQueries = {
       checkPermission(context, 'user:read');
 
       const { page = 1, limit = 20 } = args;
+      const tenantId = assertTenantAccess(context);
 
       const where = {
-        tenantId: context.user?.tenantId,
+        tenantId,
         rejectedAt: { not: null },
         deletedAt: null,
       };
@@ -117,6 +123,10 @@ export const userQueries = {
           limit,
           total,
           totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          perPage: limit,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPreviousPage: page > 1,
         },
       };
     } catch (error) {
@@ -134,7 +144,7 @@ export const userQueries = {
       // Check admin permission
       checkPermission(context, 'user:read');
 
-      const tenantId = context.user?.tenantId;
+      const tenantId = assertTenantAccess(context);
 
       const [
         totalUsers,
@@ -218,6 +228,7 @@ export const userQueries = {
       // Check admin permission
       checkPermission(context, 'user:read');
 
+      const tenantId = assertTenantAccess(context);
       const { id } = args;
 
       const user = await context.prisma.user.findUnique({
@@ -245,7 +256,7 @@ export const userQueries = {
       }
 
       // Tenant isolation check
-      if (context.user?.tenantId !== user.tenantId) {
+      if (tenantId !== user.tenantId) {
         throw new Error('User not found in your tenant');
       }
 
@@ -276,9 +287,10 @@ export const userQueries = {
         orderBy = 'createdAt',
         orderDirection = 'desc',
       } = args;
+      const tenantId = assertTenantAccess(context);
 
       const where: any = {
-        tenantId: context.user?.tenantId,
+        tenantId,
         deletedAt: null,
       };
 
@@ -333,6 +345,10 @@ export const userQueries = {
           limit,
           total,
           totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          perPage: limit,
+          hasNextPage: page < Math.ceil(total / limit),
+          hasPreviousPage: page > 1,
         },
       };
     } catch (error) {
