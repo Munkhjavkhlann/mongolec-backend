@@ -1,7 +1,7 @@
 import { checkPermission } from '@/auth';
 import { AppError, ErrorType, type GraphQLContext } from '@/types';
 
-interface CreateParticipantInput {
+export interface CreateParticipantInput {
   firstName: string;
   lastName: string;
   photo?: string;
@@ -12,7 +12,7 @@ interface CreateParticipantInput {
   rallyYears?: number[];
 }
 
-interface UpdateParticipantInput {
+export interface UpdateParticipantInput {
   firstName?: string;
   lastName?: string;
   photo?: string;

@@ -1,7 +1,7 @@
 import { checkPermission } from '@/auth';
 import { AppError, ErrorType, type GraphQLContext } from '@/types';
 
-interface CreateRangerInput {
+export interface CreateRangerInput {
   name: string;
   photo?: string;
   parkName: string;
@@ -12,7 +12,7 @@ interface CreateRangerInput {
   rallyId?: string;
 }
 
-interface UpdateRangerInput {
+export interface UpdateRangerInput {
   name?: string;
   photo?: string;
   parkName?: string;
