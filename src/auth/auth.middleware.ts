@@ -135,6 +135,7 @@ export const authenticate = async (
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
+        domain: process.env.COOKIE_DOMAIN || undefined,
       });
       return next();
     }
@@ -203,6 +204,7 @@ export const authenticate = async (
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
+        domain: process.env.COOKIE_DOMAIN || undefined,
       });
       logger.warn('Invalid JWT token, cleared cookie');
       return next();

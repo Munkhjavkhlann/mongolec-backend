@@ -79,6 +79,8 @@ export const authMutations = {
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         maxAge: JWT_EXPIRY_SECONDS * 1000,
         path: '/',
+        // Share cookie across all subdomains (e.g. admin.mongolec.org reads it server-side)
+        domain: process.env.COOKIE_DOMAIN || undefined,
       });
 
       logger.info(`User logged in: ${hashEmail(user.email)}`);
@@ -176,6 +178,7 @@ export const authMutations = {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
+      domain: process.env.COOKIE_DOMAIN || undefined,
     });
 
     logger.info('User logged out successfully', { userId: context.user?.id });
