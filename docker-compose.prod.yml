@@ -1,28 +1,80 @@
-version: '3.8'
-
 services:
   backend:
     image: ghcr.io/munkhjavkhlann/mongolec-backend:latest
     container_name: mongolec-backend
-    restart: unless-stopped
+    restart: always
     ports:
-      - "${PORT:-4000}:4000"
+      - "127.0.0.1:4000:4000"
     environment:
       - NODE_ENV=production
       - HOST=0.0.0.0
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgresql://mongolec:${POSTGRES_PASSWORD}@postgres:5432/mongolec
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - CORS_ORIGIN=${CORS_ORIGIN}
+      - B2_ENDPOINT=${B2_ENDPOINT}
+      - B2_REGION=${B2_REGION}
+      - B2_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID}
+      - B2_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY}
+      - B2_BUCKET_NAME=${B2_BUCKET_NAME}
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - LOG_LEVEL=info
+      - LOG_FILE_ENABLED=true
+      - LOG_FILE_PATH=./logs
+      - HEALTH_CHECK_ENABLED=true
+      - METRICS_ENABLED=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://0.0.0.0:4000/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     networks:
       - mongolec-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: mongolec-postgres
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=mongolec
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=mongolec
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mongolec -d mongolec"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mongolec-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mongolec-redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD} --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mongolec-network
+
+volumes:
+  postgres_data:
+  redis_data:
 
 networks:
   mongolec-network:
