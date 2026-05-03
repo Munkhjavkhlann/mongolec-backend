@@ -131,6 +131,9 @@ export class GraphQLServer {
    * Set up Express middleware stack
    */
   private setupMiddleware(): void {
+    // Trust nginx reverse proxy so req.ip returns the real client IP from X-Forwarded-For
+    this.app.set('trust proxy', 1);
+
     // Security middleware with relaxed CSP for Apollo Sandbox
     this.app.use(
       helmet({

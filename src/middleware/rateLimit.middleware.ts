@@ -158,7 +158,8 @@ export const rateLimit = (config: RateLimitConfig) => {
       next();
     } catch (error) {
       if (error instanceof AppError) {
-        throw error;
+        next(error);
+        return;
       }
 
       logger.error('Rate limit middleware error', error as Error);
