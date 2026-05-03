@@ -1,0 +1,20 @@
+name: Flush Rate Limit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  flush:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear auth rate limit keys in Redis
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            docker exec mongolec-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning KEYS "auth:*" | xargs -r docker exec -i mongolec-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning DEL
+            echo "Rate limit keys cleared"
+        env:
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
