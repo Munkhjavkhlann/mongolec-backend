@@ -200,8 +200,8 @@ export const userQueries = {
       const tenantId = assertTenantAccess(context);
       const { id } = args;
 
-      const user = await context.prisma.user.findUnique({
-        where: { id },
+      const user = await context.prisma.user.findFirst({
+        where: { id, tenantId },
         include: {
           tenant: true,
           roles: {
@@ -222,11 +222,6 @@ export const userQueries = {
 
       if (!user) {
         throw new Error('User not found');
-      }
-
-      // Tenant isolation check
-      if (tenantId !== user.tenantId) {
-        throw new Error('User not found in your tenant');
       }
 
       return {
@@ -256,6 +251,16 @@ export const userQueries = {
         orderBy = 'createdAt',
         orderDirection = 'desc',
       } = args;
+      const safeLimit = Math.min(Math.max(1, limit), 100);
+      const ALLOWED_ORDER_FIELDS = new Set([
+        'createdAt',
+        'email',
+        'firstName',
+        'lastName',
+        'lastLoginAt',
+      ]);
+      const safeOrderBy = ALLOWED_ORDER_FIELDS.has(orderBy) ? orderBy : 'createdAt';
+      const safeDirection = orderDirection === 'asc' ? 'asc' : 'desc';
       const tenantId = assertTenantAccess(context);
 
       const where: any = {
@@ -289,9 +294,9 @@ export const userQueries = {
       const [users, total] = await Promise.all([
         context.prisma.user.findMany({
           where,
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: { [orderBy]: orderDirection },
+          skip: (page - 1) * safeLimit,
+          take: safeLimit,
+          orderBy: { [safeOrderBy]: safeDirection },
           include: {
             tenant: true,
             roles: {

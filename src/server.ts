@@ -3,6 +3,8 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express4';
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
+import depthLimit from 'graphql-depth-limit';
 import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -48,8 +50,10 @@ export class GraphQLServer {
         // Proper shutdown for the HTTP server
         ApolloServerPluginDrainHttpServer({ httpServer: this.httpServer }),
 
-        // Enable Apollo Sandbox in all environments
-        ApolloServerPluginLandingPageLocalDefault({ embed: true, includeCookies: true }),
+        // Sandbox only in development — disabled in production to reduce attack surface
+        config.isDevelopment
+          ? ApolloServerPluginLandingPageLocalDefault({ embed: true, includeCookies: true })
+          : ApolloServerPluginLandingPageDisabled(),
 
         // Custom plugins for logging and monitoring
         {
@@ -123,7 +127,8 @@ export class GraphQLServer {
       },
 
       // Introspection enabled for GraphQL clients (Postman, Insomnia, etc.)
-      introspection: true,
+      introspection: config.isDevelopment,
+      validationRules: [depthLimit(7)],
     });
   }
 
@@ -230,12 +235,22 @@ export class GraphQLServer {
 
     // Metrics endpoint (if enabled)
     if (config.monitoring.metricsEnabled) {
-      this.app.get('/metrics', (req, res) => {
-        // Basic metrics (can be extended with Prometheus format)
-        const uptime = process.uptime();
-        const memoryUsage = process.memoryUsage();
+      this.app.get(
+        '/metrics',
+        (req, res, next) => {
+          const token = req.headers['authorization']?.replace('Bearer ', '');
+          if (!process.env.METRICS_SECRET || token !== process.env.METRICS_SECRET) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+          }
+          next();
+        },
+        (req, res) => {
+          // Basic metrics (can be extended with Prometheus format)
+          const uptime = process.uptime();
+          const memoryUsage = process.memoryUsage();
 
-        const metrics = `# Mongolec Backend Metrics
+          const metrics = `# Mongolec Backend Metrics
 # HELP system_uptime_seconds System uptime in seconds
 # TYPE system_uptime_seconds gauge
 system_uptime_seconds ${uptime}
@@ -256,9 +271,10 @@ http_requests_total ${this.requestCounter}
 graphql_operations_total 0
 `;
 
-        res.set('Content-Type', 'text/plain');
-        res.send(metrics);
-      });
+          res.set('Content-Type', 'text/plain');
+          res.send(metrics);
+        }
+      );
     }
 
     // CSRF protection is disabled: JWT auth in httpOnly cookies + strict CORS

@@ -53,6 +53,8 @@ export const authMutations = {
         throw new AuthenticationError('Account is suspended');
       }
 
+      const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24h — keep cookie and token lifetime in sync
+
       // Generate JWT token
       const token = jwt.sign(
         {
@@ -61,7 +63,7 @@ export const authMutations = {
           tenantId: user.tenantId,
         } as JWTPayload,
         process.env.JWT_SECRET!,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
+        { expiresIn: JWT_EXPIRY_SECONDS } as jwt.SignOptions
       );
 
       // Update last login
@@ -75,7 +77,7 @@ export const authMutations = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: JWT_EXPIRY_SECONDS * 1000,
         path: '/',
       });
 

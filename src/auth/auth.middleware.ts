@@ -186,9 +186,12 @@ export const authenticate = async (
         status: user.tenant.status,
       },
     };
-    redisClient
-      .set(authCacheKey(user.id), JSON.stringify(toCache), AUTH_CACHE_TTL)
-      .catch(err => logger.warn('Redis auth cache write failed', err));
+    const remainingTtl = Math.min(AUTH_CACHE_TTL, payload.exp - Math.floor(Date.now() / 1000));
+    if (remainingTtl > 0) {
+      redisClient
+        .set(authCacheKey(user.id), JSON.stringify(toCache), remainingTtl)
+        .catch(err => logger.warn('Redis auth cache write failed', err));
+    }
 
     logger.debug('User authenticated via DB', { userId: user.id, tenantId: user.tenantId });
 
