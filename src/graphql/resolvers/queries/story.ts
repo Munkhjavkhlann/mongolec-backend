@@ -1,9 +1,44 @@
 import { Prisma } from '@prisma/client';
 
+const STORY_INCLUDE = {
+  rally: {
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+    },
+  },
+  createdBy: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+    },
+  },
+  tenant: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
+};
+
 export const storyQueries = {
-  // Get all stories with filters
   getStories: async (_: any, args: any, context: any) => {
-    const { page = 1, limit = 20, status, type, rallyId, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      type,
+      rallyId,
+      search,
+      orderBy = 'createdAt',
+      orderDirection = 'desc',
+    } = args;
 
     try {
       const where: Prisma.StoryWhereInput = {
@@ -26,32 +61,7 @@ export const storyQueries = {
           skip: (page - 1) * limit,
           take: limit,
           orderBy: { [orderBy]: orderDirection },
-          include: {
-            rally: {
-              select: {
-                id: true,
-                slug: true,
-                title: true,
-                startDate: true,
-                endDate: true,
-              },
-            },
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            },
-          },
+          include: STORY_INCLUDE,
         }),
         context.prisma.story.count({ where }),
       ]);
@@ -73,7 +83,6 @@ export const storyQueries = {
     }
   },
 
-  // Get single story by slug or ID
   getStory: async (_: any, args: any, context: any) => {
     const { slug, id } = args;
 
@@ -115,7 +124,6 @@ export const storyQueries = {
     }
   },
 
-  // Get published stories (public)
   getPublishedStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, type, rallyId } = args;
 
@@ -165,7 +173,6 @@ export const storyQueries = {
     }
   },
 
-  // Get featured stories (public)
   getFeaturedStories: async (_: any, args: any, context: any) => {
     const { limit = 6 } = args;
 
@@ -175,7 +182,7 @@ export const storyQueries = {
           tenantId: context.tenant?.id,
           deletedAt: null,
           status: 'PUBLISHED',
-          isFeatured: true,
+          featured: true,
         },
         take: limit,
         orderBy: { publishedAt: 'desc' },
@@ -187,13 +194,6 @@ export const storyQueries = {
               title: true,
             },
           },
-          author: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
         },
       });
     } catch (error) {
@@ -202,7 +202,58 @@ export const storyQueries = {
     }
   },
 
-  // Get impact stories (public)
+  getRangerProfiles: async (_: any, _args: any, context: any) => {
+    try {
+      return await context.prisma.story.findMany({
+        where: {
+          tenantId: context.tenant?.id,
+          deletedAt: null,
+          status: 'PUBLISHED',
+          type: 'RANGER_PROFILE',
+        },
+        orderBy: [{ displayOrder: 'asc' }, { publishedAt: 'desc' }],
+        include: {
+          rally: {
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching ranger profiles:', error);
+      throw new Error('Failed to fetch ranger profiles');
+    }
+  },
+
+  getRiderProfiles: async (_: any, _args: any, context: any) => {
+    try {
+      return await context.prisma.story.findMany({
+        where: {
+          tenantId: context.tenant?.id,
+          deletedAt: null,
+          status: 'PUBLISHED',
+          type: 'RIDER_PROFILE',
+        },
+        orderBy: [{ displayOrder: 'asc' }, { publishedAt: 'desc' }],
+        include: {
+          rally: {
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching rider profiles:', error);
+      throw new Error('Failed to fetch rider profiles');
+    }
+  },
+
   getImpactStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
@@ -250,18 +301,15 @@ export const storyQueries = {
     }
   },
 
-  // Get draft stories (admin only)
   getDraftStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
-    // Check authentication
     if (!context.user) {
       throw new Error('Authentication required');
     }
 
-    // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'story' && p.action === 'manage'
+    const hasPermission = context.user.permissions?.some(
+      (p: any) => p.resource === 'story' && p.action === 'manage'
     );
 
     if (!hasPermission) {
@@ -289,14 +337,6 @@ export const storyQueries = {
                 title: true,
               },
             },
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
           },
         }),
         context.prisma.story.count({ where }),
@@ -319,18 +359,15 @@ export const storyQueries = {
     }
   },
 
-  // Get story statistics
   getStoryStats: async (_: any, args: any, context: any) => {
     const { rallyId } = args;
 
-    // Check authentication
     if (!context.user) {
       throw new Error('Authentication required');
     }
 
-    // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'story' && p.action === 'manage'
+    const hasPermission = context.user.permissions?.some(
+      (p: any) => p.resource === 'story' && p.action === 'manage'
     );
 
     if (!hasPermission) {
@@ -356,10 +393,10 @@ export const storyQueries = {
         context.prisma.story.count({ where }),
         context.prisma.story.count({ where: { ...where, status: 'PUBLISHED' } }),
         context.prisma.story.count({ where: { ...where, status: 'DRAFT' } }),
-        context.prisma.story.count({ where: { ...where, isFeatured: true } }),
+        context.prisma.story.count({ where: { ...where, featured: true } }),
         context.prisma.story.count({ where: { ...where, type: 'IMPACT' } }),
-        context.prisma.story.count({ where: { ...where, type: 'RIDER' } }),
-        context.prisma.story.count({ where: { ...where, type: 'RALLY' } }),
+        context.prisma.story.count({ where: { ...where, type: 'RIDER_PROFILE' } }),
+        context.prisma.story.count({ where: { ...where, type: 'TESTIMONIAL' } }),
       ]);
 
       return {
@@ -374,6 +411,37 @@ export const storyQueries = {
     } catch (error) {
       console.error('Error fetching story stats:', error);
       throw new Error('Failed to fetch story stats');
+    }
+  },
+
+  getRelatedStories: async (_: any, args: any, context: any) => {
+    const { storyId } = args;
+
+    try {
+      const story = await context.prisma.story.findFirst({
+        where: { id: storyId, tenantId: context.tenant?.id, deletedAt: null },
+        select: { type: true, rallyId: true, tags: true },
+      });
+
+      if (!story) return [];
+
+      return context.prisma.story.findMany({
+        where: {
+          tenantId: context.tenant?.id,
+          deletedAt: null,
+          status: 'PUBLISHED',
+          id: { not: storyId },
+          OR: [{ type: story.type }, ...(story.rallyId ? [{ rallyId: story.rallyId }] : [])],
+        },
+        take: 4,
+        orderBy: { publishedAt: 'desc' },
+        include: {
+          rally: { select: { id: true, slug: true, title: true } },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching related stories:', error);
+      throw new Error('Failed to fetch related stories');
     }
   },
 };
