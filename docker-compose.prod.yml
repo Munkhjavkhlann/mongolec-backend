@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/munkhjavkhlann/mongolec-backend:latest
+    image: ghcr.io/jayslifecode/mongolec-backend:latest
     container_name: mongolec-backend
     restart: always
     ports:
@@ -13,6 +13,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - CORS_ORIGIN=${CORS_ORIGIN}
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
       - B2_ENDPOINT=${B2_ENDPOINT}
       - B2_REGION=${B2_REGION}
       - B2_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID}

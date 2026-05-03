@@ -28,7 +28,7 @@ jobs:
           context: .
           file: ./Dockerfile.prod
           push: true
-          tags: ghcr.io/munkhjavkhlann/mongolec-backend:latest
+          tags: ghcr.io/jayslifecode/mongolec-backend:latest
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
