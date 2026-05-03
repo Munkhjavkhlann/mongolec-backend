@@ -147,11 +147,22 @@ export class GraphQLServer {
       })
     );
 
-    // CORS configuration
+    // CORS configuration — allow any *.mongolec.org subdomain plus explicit env origins
+    const explicitOrigins = new Set(config.cors.origin);
     this.app.use(
       cors({
-        origin: config.cors.origin,
-        credentials: true, // Enable credentials for cookies
+        origin: (origin, callback) => {
+          // Allow non-browser requests (curl, Postman, server-to-server)
+          if (!origin) return callback(null, true);
+          // Allow any mongolec.org subdomain
+          if (origin.endsWith('.mongolec.org') || origin === 'https://mongolec.org') {
+            return callback(null, true);
+          }
+          // Allow explicit origins from CORS_ORIGIN env var (covers localhost etc.)
+          if (explicitOrigins.has(origin)) return callback(null, true);
+          callback(new Error(`CORS: origin ${origin} not allowed`));
+        },
+        credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
       })
