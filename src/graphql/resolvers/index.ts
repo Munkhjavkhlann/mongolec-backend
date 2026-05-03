@@ -15,6 +15,8 @@ import { mediaQueries } from './queries/media';
 import { partnershipQueries } from './queries/partnership';
 import { newsletterQueries } from './queries/newsletter';
 import { teamQueries } from './queries/team';
+import { rangerQueries } from './queries/ranger';
+import { participantQueries } from './queries/participant';
 
 // Import mutations
 import { authMutations } from './mutations/auth';
@@ -32,6 +34,8 @@ import { mediaMutations } from './mutations/media';
 import { partnershipMutations } from './mutations/partnership';
 import { newsletterMutations } from './mutations/newsletter';
 import { teamMutations } from './mutations/team';
+import { rangerMutations } from './mutations/ranger';
+import { participantMutations } from './mutations/participant';
 
 /**
  * Custom scalar resolvers
@@ -124,6 +128,8 @@ export const resolvers = {
     ...partnershipQueries,
     ...newsletterQueries,
     ...teamQueries,
+    ...rangerQueries,
+    ...participantQueries,
   },
 
   // Root Mutation
@@ -144,6 +150,8 @@ export const resolvers = {
     ...partnershipMutations,
     ...newsletterMutations,
     ...teamMutations,
+    ...rangerMutations,
+    ...participantMutations,
   },
 };
 

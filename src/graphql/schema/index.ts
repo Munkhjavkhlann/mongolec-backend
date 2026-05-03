@@ -3,9 +3,11 @@ import { authSchema } from './auth';
 import { newsSchema } from './news';
 import { merchSchema } from './merch';
 import { contentSchema } from './content';
-import { uploadTypeDefs } from "./upload";
+import { uploadTypeDefs } from './upload';
 import { rallySchema } from './rally';
 import { teamSchema } from './team';
+import { rangerSchema } from './ranger';
+import { participantSchema } from './participant';
 
 /**
  * Base Schema
@@ -52,6 +54,8 @@ export const typeDefs = [
   uploadTypeDefs,
   rallySchema,
   teamSchema,
+  rangerSchema,
+  participantSchema,
 ];
 
 export default typeDefs;
