@@ -176,7 +176,7 @@ export const rateLimit = (config: RateLimitConfig) => {
 // Strict rate limiter for authentication endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 5, // 5 attempts per window
+  maxRequests: 20, // 20 attempts per window
   keyPrefix: 'auth',
 });
 
