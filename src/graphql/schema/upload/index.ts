@@ -1,4 +1,4 @@
-import { gql } from 'apollo-server-express';
+import gql from 'graphql-tag';
 
 export const uploadTypeDefs = gql`
   "Response object for a pre-signed URL request."

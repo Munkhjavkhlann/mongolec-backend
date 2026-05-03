@@ -3,8 +3,30 @@ import jwt from 'jsonwebtoken';
 import { AppError, ErrorType } from '@/types';
 import { createLogger } from '@/utils/logger';
 import { prisma } from '@/database/prisma';
+import { redisClient } from '@/database/redis';
 
 const logger = createLogger('AUTH_MIDDLEWARE');
+
+const AUTH_CACHE_TTL = 300; // 5 minutes — must be <= JWT expiry
+
+interface CachedAuthUser {
+  id: string;
+  email: string;
+  tenantId: string;
+  isActive: boolean;
+  roles: string[];
+  permissions: string[];
+  tenant: {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+  };
+}
+
+function authCacheKey(userId: string): string {
+  return `auth:user:${userId}`;
+}
 
 /**
  * Extend Express Request to include user and tenant
@@ -50,19 +72,43 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Extract token from httpOnly cookie
     const token = req.cookies['auth-token'];
 
     if (!token) {
-      // No token - user is not authenticated, but don't throw error
-      // GraphQL resolvers will check for req.user
       return next();
     }
 
-    // Verify JWT token
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
 
-    // Get user from database with roles and permissions
+    // Try Redis cache first — avoids DB on every request
+    const cached = await redisClient.get(authCacheKey(payload.id));
+    if (cached) {
+      const cachedUser: CachedAuthUser = JSON.parse(cached);
+
+      if (!cachedUser.isActive) {
+        throw new AppError(
+          'Your account is inactive or pending admin approval',
+          ErrorType.AUTHENTICATION_ERROR,
+          401
+        );
+      }
+
+      if (cachedUser.tenant.status !== 'ACTIVE') {
+        throw new AppError('Tenant account is suspended', ErrorType.AUTHENTICATION_ERROR, 401);
+      }
+
+      req.user = {
+        id: cachedUser.id,
+        email: cachedUser.email,
+        tenantId: cachedUser.tenantId,
+        roles: cachedUser.roles,
+        permissions: cachedUser.permissions,
+      };
+      req.tenant = cachedUser.tenant;
+      return next();
+    }
+
+    // Cache miss — hit the database
     const user = await prisma.user.findUnique({
       where: { id: payload.id },
       include: {
@@ -84,7 +130,6 @@ export const authenticate = async (
     });
 
     if (!user) {
-      // User not found (might be deleted) - clear cookie
       res.clearCookie('auth-token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -94,7 +139,6 @@ export const authenticate = async (
       return next();
     }
 
-    // Check if user is active
     if (!user.isActive) {
       throw new AppError(
         'Your account is inactive or pending admin approval',
@@ -103,22 +147,15 @@ export const authenticate = async (
       );
     }
 
-    // Check if tenant is active
     if (user.tenant.status !== 'ACTIVE') {
-      throw new AppError(
-        'Tenant account is suspended',
-        ErrorType.AUTHENTICATION_ERROR,
-        401
-      );
+      throw new AppError('Tenant account is suspended', ErrorType.AUTHENTICATION_ERROR, 401);
     }
 
-    // Extract roles and permissions
-    const roles = user.roles.map((ur) => ur.role.name);
-    const permissions = user.roles.flatMap((ur) =>
-      ur.role.permissions.map((rp) => `${rp.permission.resource}:${rp.permission.action}`)
+    const roles = user.roles.map(ur => ur.role.name);
+    const permissions = user.roles.flatMap(ur =>
+      ur.role.permissions.map(rp => `${rp.permission.resource}:${rp.permission.action}`)
     );
 
-    // Attach user and tenant to request
     req.user = {
       id: user.id,
       email: user.email,
@@ -134,16 +171,29 @@ export const authenticate = async (
       status: user.tenant.status,
     };
 
-    logger.debug('User authenticated successfully', {
-      userId: user.id,
+    // Write to cache fire-and-forget — a Redis failure must never break auth
+    const toCache: CachedAuthUser = {
+      id: user.id,
       email: user.email,
       tenantId: user.tenantId,
+      isActive: user.isActive,
       roles,
-    });
+      permissions,
+      tenant: {
+        id: user.tenant.id,
+        slug: user.tenant.slug,
+        name: user.tenant.name,
+        status: user.tenant.status,
+      },
+    };
+    redisClient
+      .set(authCacheKey(user.id), JSON.stringify(toCache), AUTH_CACHE_TTL)
+      .catch(err => logger.warn('Redis auth cache write failed', err));
+
+    logger.debug('User authenticated via DB', { userId: user.id, tenantId: user.tenantId });
 
     next();
   } catch (error) {
-    // JWT verification failed - clear cookie
     if (error instanceof jwt.JsonWebTokenError) {
       res.clearCookie('auth-token', {
         httpOnly: true,
@@ -160,11 +210,7 @@ export const authenticate = async (
     }
 
     logger.error('Authentication error', error as Error);
-    throw new AppError(
-      'Authentication failed',
-      ErrorType.AUTHENTICATION_ERROR,
-      401
-    );
+    throw new AppError('Authentication failed', ErrorType.AUTHENTICATION_ERROR, 401);
   }
 };
 
@@ -197,17 +243,9 @@ export const optionalAuthenticate = async (
  * Require authentication middleware
  * Throws error if user is not authenticated
  */
-export const requireAuth = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user) {
-    throw new AppError(
-      'Authentication required',
-      ErrorType.AUTHENTICATION_ERROR,
-      401
-    );
+    throw new AppError('Authentication required', ErrorType.AUTHENTICATION_ERROR, 401);
   }
   next();
 };

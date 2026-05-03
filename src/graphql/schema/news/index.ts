@@ -113,7 +113,7 @@ export const newsSchema = gql`
   # ============================================
 
   extend type Query {
-    newsArticles(
+    getNewsArticles(
       language: String
       status: String
       priority: String
@@ -121,9 +121,9 @@ export const newsSchema = gql`
       limit: Int
       offset: Int
     ): [NewsArticle!]!
-    newsArticleById(id: ID!, language: String): NewsArticle
-    newsCategories(language: String): [NewsCategory!]!
-    newsCategoryById(id: ID!, language: String): NewsCategory
+    getNewsArticleById(id: ID!, language: String): NewsArticle
+    getNewsCategories(language: String): [NewsCategory!]!
+    getNewsCategoryById(id: ID!, language: String): NewsCategory
   }
 
   # ============================================

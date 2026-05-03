@@ -16,16 +16,17 @@ export const rallyMutations = gql`
     deleteRally(id: ID!): MutationResponse!
 
     # Update rally status
-    updateRallyStatus(id: ID!, status: RallyStatus!): Rally!
+    changeRallyStatus(id: ID!, status: RallyStatus!): Rally!
 
     # Update participant count
-    updateParticipantCount(id: ID!, count: Int!): Rally!
+    updateRallyParticipantCount(id: ID!, count: Int!): Rally!
 
     # Toggle recruiting status
-    toggleRecruiting(id: ID!): Rally!
+    toggleRallyRecruiting(id: ID!): Rally!
   }
 
   input RallyCreateInput {
+    tenantId: ID
     title: JSON!
     slug: String!
     description: JSON!
@@ -91,7 +92,7 @@ export const rallyMutations = gql`
     updateRallyApplication(id: ID!, data: RallyApplicationUpdateInput!): RallyApplication!
 
     # Update application status (admin only)
-    updateApplicationStatus(id: ID!, status: ApplicationStatus!, notes: JSON): RallyApplication!
+    changeApplicationStatus(id: ID!, status: ApplicationStatus!, notes: JSON): RallyApplication!
 
     # Approve application (admin only)
     approveApplication(id: ID!, notes: String): RallyApplication!
@@ -112,7 +113,7 @@ export const rallyMutations = gql`
     addApplicationReviewNote(id: ID!, notes: JSON!): RallyApplication!
 
     # Update payment status (admin only)
-    updateApplicationPaymentStatus(
+    changeApplicationPaymentStatus(
       id: ID!
       depositPaid: Boolean
       depositAmount: Float
@@ -251,7 +252,7 @@ export const rallyMutations = gql`
     updateParkNomination(id: ID!, data: ParkNominationUpdateInput!): ParkNomination!
 
     # Update nomination status (admin only)
-    updateNominationStatus(id: ID!, status: NominationStatus!, notes: JSON): ParkNomination!
+    changeNominationStatus(id: ID!, status: NominationStatus!, notes: JSON): ParkNomination!
 
     # Approve nomination (admin only)
     approveNomination(id: ID!, notes: String): ParkNomination!
@@ -330,7 +331,7 @@ export const rallyMutations = gql`
     updateParkPartnership(id: ID!, data: ParkPartnershipUpdateInput!): ParkPartnership!
 
     # Update partnership status
-    updatePartnershipStatus(id: ID!, status: PartnershipStatus!): ParkPartnership!
+    changePartnershipStatus(id: ID!, status: PartnershipStatus!): ParkPartnership!
 
     # Delete park partnership (soft delete)
     deleteParkPartnership(id: ID!): MutationResponse!
@@ -517,7 +518,7 @@ export const rallyMutations = gql`
     updateNewsletterSubscription(email: String!, data: SubscriptionUpdateInput!): NewsletterSubscription!
 
     # Update subscription status (admin)
-    updateSubscriptionStatus(email: String!, status: SubscriptionStatus!): NewsletterSubscription!
+    changeSubscriptionStatus(email: String!, status: SubscriptionStatus!): NewsletterSubscription!
 
     # Record email open (tracking)
     recordEmailOpen(email: String!): NewsletterSubscription!

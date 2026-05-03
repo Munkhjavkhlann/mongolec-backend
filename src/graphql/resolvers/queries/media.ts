@@ -2,12 +2,12 @@ import { Prisma } from '@prisma/client';
 
 export const mediaQueries = {
   // Get all media with filters
-  rallyMedia: async (_: any, args: any, context: any) => {
+  getRallyMedia: async (_: any, args: any, context: any) => {
     const { rallyId, type, orderBy = 'displayOrder', orderDirection = 'asc' } = args;
 
     try {
       const where: Prisma.RallyMediaWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(rallyId && { rallyId }),
         ...(type && { type }),
@@ -35,12 +35,12 @@ export const mediaQueries = {
   },
 
   // Get single media by ID
-  media: async (_: any, args: any, context: any) => {
+  getMedia: async (_: any, args: any, context: any) => {
     const { id } = args;
 
     try {
       const media = await context.prisma.rallyMedia.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
         include: {
           rally: {
             select: {

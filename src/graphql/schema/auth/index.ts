@@ -62,6 +62,10 @@ export const authSchema = gql`
     limit: Int!
     total: Int!
     totalPages: Int!
+    currentPage: Int!
+    perPage: Int!
+    hasNextPage: Boolean!
+    hasPreviousPage: Boolean!
   }
 
   type UserApprovalStats {
@@ -137,12 +141,12 @@ export const authSchema = gql`
   extend type Query {
     me: User
     tenants: [Tenant!]!
-    tenantById(id: ID!): Tenant
-    tenantBySlug(slug: String!): Tenant
+    getTenantById(id: ID!): Tenant
+    getTenantBySlug(slug: String!): Tenant
 
     # User Management (Admin)
-    user(id: ID!): User
-    users(
+    getUser(id: ID!): User
+    getUsers(
       page: Int
       limit: Int
       search: String
@@ -150,9 +154,9 @@ export const authSchema = gql`
       orderBy: String
       orderDirection: String
     ): PaginatedUsers!
-    pendingUsers(page: Int, limit: Int, search: String): PaginatedUsers!
-    rejectedUsers(page: Int, limit: Int): PaginatedUsers!
-    userApprovalStats: UserApprovalStats!
+    getPendingUsers(page: Int, limit: Int, search: String): PaginatedUsers!
+    getRejectedUsers(page: Int, limit: Int): PaginatedUsers!
+    getUserApprovalStats: UserApprovalStats!
   }
 
   enum UserStatus {

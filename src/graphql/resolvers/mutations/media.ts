@@ -22,7 +22,7 @@ export const mediaMutations = {
       const maxOrder = await context.prisma.rallyMedia.findFirst({
         where: {
           rallyId: data.rallyId,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
         orderBy: { displayOrder: 'desc' },
@@ -35,7 +35,7 @@ export const mediaMutations = {
       const media = await context.prisma.rallyMedia.create({
         data: {
           ...data,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           displayOrder,
         },
         include: {
@@ -77,7 +77,7 @@ export const mediaMutations = {
     try {
       // Verify media exists
       const existing = await context.prisma.rallyMedia.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -128,7 +128,7 @@ export const mediaMutations = {
     try {
       // Verify media exists
       const existing = await context.prisma.rallyMedia.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -177,7 +177,7 @@ export const mediaMutations = {
           where: {
             id,
             rallyId,
-            tenantId: context.tenantId,
+            tenantId: context.tenant?.id,
             deletedAt: null,
           },
           data: { displayOrder: index },
@@ -190,7 +190,7 @@ export const mediaMutations = {
       const media = await context.prisma.rallyMedia.findMany({
         where: {
           rallyId,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
         orderBy: { displayOrder: 'asc' },

@@ -8,7 +8,7 @@ export const applicationMutations = {
       const rally = await context.prisma.rally.findFirst({
         where: {
           id: data.rallyId,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
           isRecruiting: true,
         },
@@ -33,7 +33,7 @@ export const applicationMutations = {
         where: {
           rallyId: data.rallyId,
           email: data.email.toLowerCase(),
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });
@@ -62,7 +62,7 @@ export const applicationMutations = {
         data: {
           ...data,
           email: data.email.toLowerCase(),
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           status: 'PENDING',
         },
         include: {
@@ -116,7 +116,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -147,7 +147,7 @@ export const applicationMutations = {
   },
 
   // Update application status (admin only)
-  updateApplicationStatus: async (_: any, args: any, context: any) => {
+  changeApplicationStatus: async (_: any, args: any, context: any) => {
     const { id, status, notes } = args;
 
     // Check authentication
@@ -167,7 +167,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -225,7 +225,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
         include: {
           rally: true,
         },
@@ -306,7 +306,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -355,7 +355,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -404,7 +404,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -444,7 +444,7 @@ export const applicationMutations = {
     );
 
     const existing = await context.prisma.rallyApplication.findFirst({
-      where: { id, tenantId: context.tenantId, deletedAt: null },
+      where: { id, tenantId: context.tenant?.id, deletedAt: null },
     });
 
     if (!existing) {
@@ -510,7 +510,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -539,7 +539,7 @@ export const applicationMutations = {
   },
 
   // Update payment status
-  updateApplicationPaymentStatus: async (_: any, args: any, context: any) => {
+  changeApplicationPaymentStatus: async (_: any, args: any, context: any) => {
     const { id, depositPaid, depositAmount, fullyPaid, totalAmount, fundraisingStatus } = args;
 
     // Check authentication
@@ -559,7 +559,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -607,7 +607,7 @@ export const applicationMutations = {
     try {
       // Verify application exists
       const existing = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {

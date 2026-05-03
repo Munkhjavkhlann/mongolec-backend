@@ -2,12 +2,12 @@ import { Prisma } from '@prisma/client';
 
 export const storyQueries = {
   // Get all stories with filters
-  stories: async (_: any, args: any, context: any) => {
+  getStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, status, type, rallyId, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
 
     try {
       const where: Prisma.StoryWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(status && { status }),
         ...(type && { type }),
@@ -74,7 +74,7 @@ export const storyQueries = {
   },
 
   // Get single story by slug or ID
-  story: async (_: any, args: any, context: any) => {
+  getStory: async (_: any, args: any, context: any) => {
     const { slug, id } = args;
 
     if (!slug && !id) {
@@ -84,7 +84,7 @@ export const storyQueries = {
     try {
       const story = await context.prisma.story.findFirst({
         where: {
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
           ...(slug && { slug }),
           ...(id && { id }),
@@ -97,14 +97,6 @@ export const storyQueries = {
               title: true,
               startDate: true,
               endDate: true,
-            },
-          },
-          author: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
             },
           },
           tenant: true,
@@ -124,12 +116,12 @@ export const storyQueries = {
   },
 
   // Get published stories (public)
-  publishedStories: async (_: any, args: any, context: any) => {
+  getPublishedStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, type, rallyId } = args;
 
     try {
       const where: Prisma.StoryWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         status: 'PUBLISHED',
         ...(type && { type }),
@@ -149,13 +141,6 @@ export const storyQueries = {
                 slug: true,
                 title: true,
                 startDate: true,
-              },
-            },
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
               },
             },
           },
@@ -181,13 +166,13 @@ export const storyQueries = {
   },
 
   // Get featured stories (public)
-  featuredStories: async (_: any, args: any, context: any) => {
+  getFeaturedStories: async (_: any, args: any, context: any) => {
     const { limit = 6 } = args;
 
     try {
       return await context.prisma.story.findMany({
         where: {
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
           status: 'PUBLISHED',
           isFeatured: true,
@@ -218,12 +203,12 @@ export const storyQueries = {
   },
 
   // Get impact stories (public)
-  impactStories: async (_: any, args: any, context: any) => {
+  getImpactStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
     try {
       const where: Prisma.StoryWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         status: 'PUBLISHED',
         type: 'IMPACT',
@@ -241,13 +226,6 @@ export const storyQueries = {
                 id: true,
                 slug: true,
                 title: true,
-              },
-            },
-            author: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
               },
             },
           },
@@ -273,7 +251,7 @@ export const storyQueries = {
   },
 
   // Get draft stories (admin only)
-  draftStories: async (_: any, args: any, context: any) => {
+  getDraftStories: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
     // Check authentication
@@ -292,7 +270,7 @@ export const storyQueries = {
 
     try {
       const where: Prisma.StoryWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         status: 'DRAFT',
       };
@@ -342,7 +320,7 @@ export const storyQueries = {
   },
 
   // Get story statistics
-  storyStats: async (_: any, args: any, context: any) => {
+  getStoryStats: async (_: any, args: any, context: any) => {
     const { rallyId } = args;
 
     // Check authentication
@@ -361,7 +339,7 @@ export const storyQueries = {
 
     try {
       const where: Prisma.StoryWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(rallyId && { rallyId }),
       };

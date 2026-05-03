@@ -2,12 +2,12 @@ import { Prisma } from '@prisma/client';
 
 export const newsletterQueries = {
   // Get all subscriptions with filters
-  newsletterSubscriptions: async (_: any, args: any, context: any) => {
+  getNewsletterSubscriptions: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, status, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
 
     try {
       const where: Prisma.NewsletterSubscriptionWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(status && { status }),
         ...(search && {
@@ -47,12 +47,12 @@ export const newsletterQueries = {
   },
 
   // Get single subscription by ID
-  newsletterSubscription: async (_: any, args: any, context: any) => {
+  getNewsletterSubscription: async (_: any, args: any, context: any) => {
     const { id } = args;
 
     try {
       const subscription = await context.prisma.newsletterSubscription.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!subscription) {
@@ -68,10 +68,10 @@ export const newsletterQueries = {
   },
 
   // Get subscription statistics
-  newsletterStats: async (_: any, _args: any, context: any) => {
+  getNewsletterStats: async (_: any, _args: any, context: any) => {
     try {
       const where: Prisma.NewsletterSubscriptionWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
       };
 

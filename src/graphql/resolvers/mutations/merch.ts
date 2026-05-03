@@ -60,13 +60,13 @@ export const merchMutations = {
           : productData.publishedAt;
 
       const product = await context.prisma.merchProduct.create({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: {
           ...productData,
           slug,
           publishedAt,
           tenantId: context.user.tenantId,
           createdById: context.user.id,
-          // Create variants if provided
           productVariants:
             variants && variants.length > 0
               ? {
@@ -78,7 +78,7 @@ export const merchMutations = {
                   })),
                 }
               : undefined,
-        },
+        } as any,
         include: {
           category: true,
           tenant: true,

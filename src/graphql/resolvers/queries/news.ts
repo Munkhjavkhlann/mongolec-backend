@@ -12,7 +12,7 @@ export const newsQueries = {
   /**
    * Get news articles with filtering and pagination
    */
-  newsArticles: async (_parent: any, args: any, context: GraphQLContext) => {
+  getNewsArticles: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { language = 'en', status, priority, categoryId, limit = 50, offset = 0 } = args;
 
@@ -68,7 +68,7 @@ export const newsQueries = {
   /**
    * Get single news article by ID
    */
-  newsArticleById: async (_parent: any, args: any, context: GraphQLContext) => {
+  getNewsArticleById: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { id, language = 'en' } = args;
 
@@ -112,7 +112,7 @@ export const newsQueries = {
   /**
    * Get news categories
    */
-  newsCategories: async (_parent: any, args: any, context: GraphQLContext) => {
+  getNewsCategories: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { language = 'en' } = args;
 
@@ -137,7 +137,7 @@ export const newsQueries = {
   /**
    * Get single news category by ID
    */
-  newsCategoryById: async (_parent: any, args: any, context: GraphQLContext) => {
+  getNewsCategoryById: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { id, language = 'en' } = args;
 

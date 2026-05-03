@@ -22,7 +22,7 @@ export const partnershipMutations = {
       const partnership = await context.prisma.parkPartnership.create({
         data: {
           ...data,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           partnershipStatus: data.partnershipStatus || 'PROSPECTIVE',
         },
         include: {
@@ -64,7 +64,7 @@ export const partnershipMutations = {
     try {
       // Verify partnership exists
       const existing = await context.prisma.parkPartnership.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -95,7 +95,7 @@ export const partnershipMutations = {
   },
 
   // Update partnership status (admin only)
-  updatePartnershipStatus: async (_: any, args: any, context: any) => {
+  changePartnershipStatus: async (_: any, args: any, context: any) => {
     const { id, status } = args;
 
     // Check authentication
@@ -115,7 +115,7 @@ export const partnershipMutations = {
     try {
       // Verify partnership exists
       const existing = await context.prisma.parkPartnership.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -166,7 +166,7 @@ export const partnershipMutations = {
     try {
       // Verify partnership exists
       const existing = await context.prisma.parkPartnership.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {

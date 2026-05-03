@@ -41,13 +41,14 @@ export const contentMutations = {
       );
 
       const content = await context.prisma.content.create({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: {
           ...input,
           slug,
           tenantId: context.user.tenantId,
           status: input.status || 'DRAFT',
           createdById: context.user.id,
-        },
+        } as any,
         include: {
           tenant: true
         }

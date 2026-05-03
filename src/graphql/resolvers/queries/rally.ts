@@ -2,13 +2,18 @@ import { Prisma } from '@prisma/client';
 
 export const rallyQueries = {
   // Get all rallies with pagination and filters
-  rallies: async (_: any, args: any, context: any) => {
-    const { page = 1, limit = 20, status, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+  getRallies: async (_: any, args: any, context: any) => {
+    const { page = 1, limit = 20, status, search, orderBy = 'createdAt', orderDirection = 'desc', tenantId: tenantIdArg } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       // Build where clause
+      const tenantFilter = isSuperAdmin
+        ? tenantIdArg ? { tenantId: tenantIdArg } : {}
+        : { tenantId: context.tenant?.id };
+
       const where: Prisma.RallyWhereInput = {
-        tenantId: context.tenantId,
+        ...tenantFilter,
         deletedAt: null,
         ...(status && { status }),
       };
@@ -49,8 +54,6 @@ export const rallyQueries = {
             _count: {
               select: {
                 applications: true,
-                donations: true,
-                sponsors: true,
                 stories: true,
               },
             },
@@ -77,7 +80,7 @@ export const rallyQueries = {
   },
 
   // Get single rally by slug or ID
-  rally: async (_: any, args: any, context: any) => {
+  getRally: async (_: any, args: any, context: any) => {
     const { slug, id } = args;
 
     if (!slug && !id) {
@@ -87,7 +90,7 @@ export const rallyQueries = {
     try {
       const rally = await context.prisma.rally.findFirst({
         where: {
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
           ...(slug && { slug }),
           ...(id && { id }),
@@ -115,15 +118,6 @@ export const rallyQueries = {
             orderBy: { createdAt: 'desc' },
             take: 10,
           },
-          donations: {
-            where: { deletedAt: null },
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          },
-          sponsors: {
-            where: { deletedAt: null },
-            orderBy: { displayOrder: 'asc' },
-          },
           media: {
             where: { deletedAt: null },
             orderBy: { displayOrder: 'asc' },
@@ -149,12 +143,12 @@ export const rallyQueries = {
   },
 
   // Get upcoming rallies
-  upcomingRallies: async (_: any, args: any, context: any) => {
+  getUpcomingRallies: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
     try {
       const where: Prisma.RallyWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         status: { in: ['UPCOMING', 'ONGOING'] },
       };
@@ -208,12 +202,12 @@ export const rallyQueries = {
   },
 
   // Get past rallies
-  pastRallies: async (_: any, args: any, context: any) => {
+  getPastRallies: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
 
     try {
       const where: Prisma.RallyWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         status: 'COMPLETED',
       };
@@ -268,11 +262,11 @@ export const rallyQueries = {
   },
 
   // Get recruiting rallies (accepting applications)
-  recruitingRallies: async (_: any, _args: any, context: any) => {
+  getRecruitingRallies: async (_: any, _args: any, context: any) => {
     try {
       return await context.prisma.rally.findMany({
         where: {
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
           isRecruiting: true,
           status: { in: ['UPCOMING', 'ONGOING'] },

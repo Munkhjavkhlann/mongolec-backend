@@ -11,7 +11,7 @@ export const contentQueries = {
   /**
    * Get all content with basic filtering
    */
-  content: async (_: any, args: any, context: GraphQLContext) => {
+  getContent: async (_: any, args: any, context: GraphQLContext) => {
     try {
       const { status = 'PUBLISHED', limit = 10, offset = 0 } = args;
 
@@ -38,7 +38,7 @@ export const contentQueries = {
   /**
    * Get content by ID
    */
-  contentById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
+  getContentById: async (_: any, { id }: { id: string }, context: GraphQLContext) => {
     try {
       const content = await context.prisma.content.findUnique({
         where: { id },

@@ -12,7 +12,7 @@ export const merchQueries = {
   /**
    * Get merchandise products with filtering and pagination
    */
-  merchProducts: async (_parent: any, args: any, context: GraphQLContext) => {
+  getMerchProducts: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const {
         language = 'en',
@@ -104,7 +104,7 @@ export const merchQueries = {
   /**
    * Get single merchandise product by ID
    */
-  merchProductById: async (_parent: any, args: any, context: GraphQLContext) => {
+  getMerchProductById: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { id, language = 'en' } = args;
 
@@ -163,7 +163,7 @@ export const merchQueries = {
   /**
    * Get merchandise categories
    */
-  merchCategories: async (_parent: any, args: any, context: GraphQLContext) => {
+  getMerchCategories: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { language = 'en' } = args;
 
@@ -209,7 +209,7 @@ export const merchQueries = {
   /**
    * Get single merchandise category by ID
    */
-  merchCategoryById: async (_parent: any, args: any, context: GraphQLContext) => {
+  getMerchCategoryById: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { id, language = 'en' } = args;
 

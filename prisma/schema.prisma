@@ -52,6 +52,8 @@ model Tenant {
   rallyMedia        RallyMedia[]
   newsletterSubs    NewsletterSubscription[]
   parkNominations   ParkNomination[]
+  teamMembers       TeamMember[]
+  contactMessages   ContactMessage[]
 
   @@map("tenants")
 }
@@ -131,6 +133,10 @@ model User {
   uploadedRallyMedia RallyMedia[] @relation("RallyMediaUploader")
 
   @@unique([email, tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, isActive, approvedAt])
+  @@index([tenantId, rejectedAt])
+  @@index([tenantId, createdAt])
   @@map("users")
 }
 
@@ -596,6 +602,10 @@ model NewsArticle {
   deletedAt   DateTime?
 
   @@unique([slug, tenantId])
+  @@index([tenantId, status, publishedAt])
+  @@index([tenantId, isBreaking])
+  @@index([tenantId, isFeatured])
+  @@index([categoryId])
   @@map("news_articles")
 }
 
@@ -730,6 +740,8 @@ model MerchProduct {
 
   @@unique([slug, tenantId])
   @@unique([sku, tenantId])
+  @@index([tenantId, status, isFeatured])
+  @@index([categoryId])
   @@map("merch_products")
 }
 
@@ -858,6 +870,8 @@ model Rally {
   stories         Story[]
 
   @@unique([slug, tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, isRecruiting, status])
   @@map("rallies")
 }
 
@@ -957,6 +971,9 @@ model RallyApplication {
   deletedAt       DateTime?
 
   @@unique([email, rallyId, tenantId])
+  @@index([tenantId, status])
+  @@index([rallyId, status])
+  @@index([tenantId, rallyId])
   @@map("rally_applications")
 }
 
@@ -1071,6 +1088,8 @@ model Story {
   deletedAt       DateTime?
 
   @@unique([slug, tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, type, status])
   @@map("stories")
 }
 
@@ -1162,6 +1181,7 @@ model NewsletterSubscription {
   unsubscribedAt  DateTime?
 
   @@unique([email, tenantId])
+  @@index([tenantId, status])
   @@map("newsletter_subscriptions")
 }
 
@@ -1224,6 +1244,7 @@ model ParkNomination {
   updatedAt       DateTime    @updatedAt
   deletedAt       DateTime?
 
+  @@index([tenantId, status])
   @@map("park_nominations")
 }
 
@@ -1234,4 +1255,49 @@ enum NominationStatus {
   REJECTED
   SELECTED
   NOT_SELECTED
+}
+
+model TeamMember {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  role         String
+  bio          String?
+  photo        String?
+  email        String?
+  linkedinUrl  String?
+  twitterUrl   String?
+  displayOrder Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, displayOrder])
+  @@map("team_members")
+}
+
+enum ContactMessageStatus {
+  NEW
+  READ
+  REPLIED
+}
+
+model ContactMessage {
+  id        String               @id @default(cuid())
+  tenantId  String
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  subject   String
+  message   String               @db.Text
+  status    ContactMessageStatus @default(NEW)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("contact_messages")
 }

@@ -39,8 +39,8 @@ export const contentSchema = gql`
   # ============================================
 
   extend type Query {
-    content: [Content!]!
-    contentById(id: ID!): Content
+    getContent: [Content!]!
+    getContentById(id: ID!): Content
   }
 
   # ============================================

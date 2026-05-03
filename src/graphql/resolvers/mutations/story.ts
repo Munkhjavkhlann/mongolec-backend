@@ -24,7 +24,7 @@ export const storyMutations = {
           where: {
             slug_tenantId: {
               slug: data.slug,
-              tenantId: context.tenantId,
+              tenantId: context.tenant?.id,
             },
           },
         });
@@ -38,7 +38,7 @@ export const storyMutations = {
       const story = await context.prisma.story.create({
         data: {
           ...data,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           authorId: context.user.id,
           status: data.status || 'DRAFT',
         },
@@ -90,7 +90,7 @@ export const storyMutations = {
     try {
       // Verify story exists
       const existing = await context.prisma.story.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -103,7 +103,7 @@ export const storyMutations = {
           where: {
             slug_tenantId: {
               slug: data.slug,
-              tenantId: context.tenantId,
+              tenantId: context.tenant?.id,
             },
           },
         });
@@ -169,7 +169,7 @@ export const storyMutations = {
     try {
       // Verify story exists
       const existing = await context.prisma.story.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -231,7 +231,7 @@ export const storyMutations = {
     try {
       // Verify story exists
       const existing = await context.prisma.story.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -292,7 +292,7 @@ export const storyMutations = {
     try {
       // Verify story exists
       const existing = await context.prisma.story.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -353,7 +353,7 @@ export const storyMutations = {
     try {
       // Verify story exists
       const existing = await context.prisma.story.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {

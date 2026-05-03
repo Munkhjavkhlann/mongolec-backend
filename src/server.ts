@@ -60,7 +60,8 @@ export class GraphQLServer {
                 logger.debug('GraphQL operation completed', {
                   operationName: request.operationName,
                   variables: config.isDevelopment ? request.variables : undefined,
-                  errors: response.body.kind === 'single' && response.body.singleResult.errors?.length,
+                  errors:
+                    response.body.kind === 'single' && response.body.singleResult.errors?.length,
                 });
               },
               async didEncounterErrors(requestContext: any) {
@@ -78,7 +79,7 @@ export class GraphQLServer {
           },
         },
       ],
-      
+
       // Error formatting
       formatError: (formattedError, error) => {
         // Log error details
@@ -131,27 +132,33 @@ export class GraphQLServer {
    */
   private setupMiddleware(): void {
     // Security middleware with relaxed CSP for Apollo Sandbox
-    this.app.use(helmet({
-      contentSecurityPolicy: false, // Disable CSP to allow Apollo Sandbox to work
-      crossOriginEmbedderPolicy: false,
-    }));
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: false, // Disable CSP to allow Apollo Sandbox to work
+        crossOriginEmbedderPolicy: false,
+      })
+    );
 
     // CORS configuration
-    this.app.use(cors({
-      origin: config.cors.origin,
-      credentials: true, // Enable credentials for cookies
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
-    }));
+    this.app.use(
+      cors({
+        origin: config.cors.origin,
+        credentials: true, // Enable credentials for cookies
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+      })
+    );
 
     // Request logging
-    this.app.use(morgan('combined', {
-      stream: {
-        write: (message: string) => {
-          logger.info('HTTP Request', { message: message.trim() });
-        }
-      }
-    }));
+    this.app.use(
+      morgan('combined', {
+        stream: {
+          write: (message: string) => {
+            logger.info('HTTP Request', { message: message.trim() });
+          },
+        },
+      })
+    );
 
     // Cookie parsing
     this.app.use(cookieParser());
@@ -194,10 +201,10 @@ export class GraphQLServer {
       try {
         const dbHealthy = await databaseClient.isHealthy();
         const redisHealthy = await redisClient.ping();
-        
+
         const status = dbHealthy && redisHealthy ? 'healthy' : 'degraded';
         const statusCode = status === 'healthy' ? 200 : 503;
-        
+
         res.status(statusCode).json({
           status,
           timestamp: new Date().toISOString(),
@@ -276,18 +283,47 @@ graphql_operations_total 0
     });
 
     // GraphQL endpoint with context creation (Apollo's default landing page auto-serves)
-    this.app.use('/graphql',
+    this.app.use(
+      '/graphql',
       expressMiddleware(this.apolloServer, {
         context: async ({ req, res }): Promise<GraphQLContext> => {
-          // User and tenant are already attached to req by authenticate middleware
           const user = (req as any).user || null;
-          const tenant = (req as any).tenant || null;
+          let tenant = (req as any).tenant || null;
+
+          // For unauthenticated requests, resolve tenant from X-Tenant-ID header
+          if (!tenant) {
+            const headerValue = req.headers['x-tenant-id'] as string | undefined;
+            if (headerValue) {
+              const cacheKey = `tenant:slug:${headerValue}`;
+              const cached = redisClient.isHealthy()
+                ? await redisClient.getClient().get(cacheKey)
+                : null;
+              if (cached) {
+                tenant = JSON.parse(cached);
+              } else {
+                tenant = await prisma.tenant.findFirst({
+                  where: {
+                    OR: [{ slug: headerValue }, { id: headerValue }],
+                    status: 'ACTIVE',
+                    deletedAt: null,
+                  },
+                  select: { id: true, slug: true, name: true, status: true, plan: true },
+                });
+                if (tenant && redisClient.isHealthy()) {
+                  redisClient
+                    .getClient()
+                    .set(cacheKey, JSON.stringify(tenant), 'EX', 300)
+                    .catch(() => {});
+                }
+              }
+            }
+          }
 
           return {
             req,
             res,
             prisma,
-            redis: redisClient.isHealthy() ? redisClient.getClient() : null as any,
+            redis: redisClient.isHealthy() ? redisClient.getClient() : (null as any),
             user,
             tenant,
             dataSources: {
@@ -296,7 +332,7 @@ graphql_operations_total 0
               contentService: null,
             },
           };
-        }
+        },
       })
     );
 
@@ -310,32 +346,34 @@ graphql_operations_total 0
     });
 
     // Global error handler
-    this.app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      logger.error('Unhandled error in Express', error);
+    this.app.use(
+      (error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+        logger.error('Unhandled error in Express', error);
 
-      if (res.headersSent) {
-        return next(error);
-      }
+        if (res.headersSent) {
+          return next(error);
+        }
 
-      let statusCode = 500;
-      let errorResponse = {
-        error: 'Internal Server Error',
-        message: 'An unexpected error occurred',
-        ...(config.isDevelopment && { stack: error.stack }),
-      };
-
-      if (error instanceof AppError) {
-        statusCode = error.statusCode;
-        errorResponse = {
-          error: error.type,
-          message: error.message,
-          ...(error.details && { details: error.details }),
+        let statusCode = 500;
+        let errorResponse = {
+          error: 'Internal Server Error',
+          message: 'An unexpected error occurred',
           ...(config.isDevelopment && { stack: error.stack }),
         };
-      }
 
-      res.status(statusCode).json(errorResponse);
-    });
+        if (error instanceof AppError) {
+          statusCode = error.statusCode;
+          errorResponse = {
+            error: error.type,
+            message: error.message,
+            ...(error.details && { details: error.details }),
+            ...(config.isDevelopment && { stack: error.stack }),
+          };
+        }
+
+        res.status(statusCode).json(errorResponse);
+      }
+    );
   }
 
   /**
@@ -344,8 +382,13 @@ graphql_operations_total 0
   async start(): Promise<void> {
     try {
       // Validate JWT_SECRET before starting server
-      if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'your-super-secret-jwt-key-change-this') {
-        throw new Error('JWT_SECRET is not set or is still the default insecure value. Run: openssl rand -hex 64');
+      if (
+        !process.env.JWT_SECRET ||
+        process.env.JWT_SECRET === 'your-super-secret-jwt-key-change-this'
+      ) {
+        throw new Error(
+          'JWT_SECRET is not set or is still the default insecure value. Run: openssl rand -hex 64'
+        );
       }
 
       logger.info('Starting GraphQL server...');
@@ -370,7 +413,7 @@ graphql_operations_total 0
       this.setupMiddleware();
 
       // Start HTTP server
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         this.httpServer.listen(config.port, config.host, () => {
           resolve();
         });
@@ -378,11 +421,10 @@ graphql_operations_total 0
 
       logger.info(`🚀 GraphQL Server ready at http://${config.host}:${config.port}/graphql`);
       logger.info(`📊 Health check available at http://${config.host}:${config.port}/health`);
-      
+
       if (config.monitoring.metricsEnabled) {
         logger.info(`📈 Metrics available at http://${config.host}:${config.port}/metrics`);
       }
-
     } catch (error) {
       logger.error('Failed to start server', error as Error);
       throw error;
@@ -402,7 +444,7 @@ graphql_operations_total 0
 
       // Close HTTP server
       await new Promise<void>((resolve, reject) => {
-        this.httpServer.close((error) => {
+        this.httpServer.close(error => {
           if (error) {
             reject(error);
           } else {

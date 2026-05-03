@@ -13,7 +13,7 @@ export const userQueries = {
    * Get pending users (awaiting admin approval)
    * Requires admin permission
    */
-  pendingUsers: async (_parent: any, args: any, context: GraphQLContext) => {
+  getPendingUsers: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       // Check admin permission
       checkPermission(context, 'user:read');
@@ -56,7 +56,7 @@ export const userQueries = {
       ]);
 
       return {
-        users: users.map((user) => ({
+        users: users.map(user => ({
           ...user,
           password: undefined,
         })),
@@ -81,7 +81,7 @@ export const userQueries = {
    * Get rejected users
    * Requires admin permission
    */
-  rejectedUsers: async (_parent: any, args: any, context: GraphQLContext) => {
+  getRejectedUsers: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       // Check admin permission
       checkPermission(context, 'user:read');
@@ -114,7 +114,7 @@ export const userQueries = {
       ]);
 
       return {
-        users: users.map((user) => ({
+        users: users.map(user => ({
           ...user,
           password: undefined,
         })),
@@ -139,12 +139,15 @@ export const userQueries = {
    * Get user approval statistics for admin dashboard
    * Requires admin permission
    */
-  userApprovalStats: async (_parent: any, _args: any, context: GraphQLContext) => {
+  getUserApprovalStats: async (_parent: any, _args: any, context: GraphQLContext) => {
     try {
       // Check admin permission
       checkPermission(context, 'user:read');
 
       const tenantId = assertTenantAccess(context);
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       const [
         totalUsers,
@@ -152,55 +155,23 @@ export const userQueries = {
         pendingUsers,
         rejectedUsers,
         inactiveUsers,
+        recentRegistrations,
       ] = await Promise.all([
-        // Total users
+        context.prisma.user.count({ where: { tenantId, deletedAt: null } }),
+        context.prisma.user.count({ where: { tenantId, isActive: true, deletedAt: null } }),
         context.prisma.user.count({
-          where: { tenantId, deletedAt: null },
+          where: { tenantId, isActive: false, approvedAt: null, rejectedAt: null, deletedAt: null },
         }),
-        // Active users
         context.prisma.user.count({
-          where: { tenantId, isActive: true, deletedAt: null },
+          where: { tenantId, rejectedAt: { not: null }, deletedAt: null },
         }),
-        // Pending users (not rejected, not active, not approved)
         context.prisma.user.count({
-          where: {
-            tenantId,
-            isActive: false,
-            approvedAt: null,
-            rejectedAt: null,
-            deletedAt: null,
-          },
+          where: { tenantId, isActive: false, approvedAt: { not: null }, deletedAt: null },
         }),
-        // Rejected users
         context.prisma.user.count({
-          where: {
-            tenantId,
-            rejectedAt: { not: null },
-            deletedAt: null,
-          },
-        }),
-        // Inactive users (active but manually deactivated)
-        context.prisma.user.count({
-          where: {
-            tenantId,
-            isActive: false,
-            approvedAt: { not: null },
-            deletedAt: null,
-          },
+          where: { tenantId, createdAt: { gte: sevenDaysAgo }, deletedAt: null },
         }),
       ]);
-
-      // Recent registrations (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const recentRegistrations = await context.prisma.user.count({
-        where: {
-          tenantId,
-          createdAt: { gte: sevenDaysAgo },
-          deletedAt: null,
-        },
-      });
 
       return {
         totalUsers,
@@ -209,9 +180,7 @@ export const userQueries = {
         rejectedUsers,
         inactiveUsers,
         recentRegistrations,
-        approvalRate: totalUsers > 0
-          ? Math.round((activeUsers / totalUsers) * 100)
-          : 0,
+        approvalRate: totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
       };
     } catch (error) {
       logger.error('Failed to fetch user approval stats', error as Error);
@@ -223,7 +192,7 @@ export const userQueries = {
    * Get user by ID (for admin view)
    * Requires admin permission
    */
-  user: async (_parent: any, args: any, context: GraphQLContext) => {
+  getUser: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       // Check admin permission
       checkPermission(context, 'user:read');
@@ -274,7 +243,7 @@ export const userQueries = {
    * Get all users (with filters)
    * Requires admin permission
    */
-  users: async (_parent: any, args: any, context: GraphQLContext) => {
+  getUsers: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       // Check admin permission
       checkPermission(context, 'user:read');
@@ -336,7 +305,7 @@ export const userQueries = {
       ]);
 
       return {
-        users: users.map((user) => ({
+        users: users.map(user => ({
           ...user,
           password: undefined,
         })),

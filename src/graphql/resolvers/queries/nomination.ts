@@ -2,15 +2,16 @@ import { Prisma } from '@prisma/client';
 
 export const nominationQueries = {
   // Get all nominations with filters
-  nominations: async (_: any, args: any, context: any) => {
-    const { page = 1, limit = 20, status, rallyId, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+  getNominations: async (_: any, args: any, context: any) => {
+    const { page = 1, limit = 20, status, country, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.ParkNominationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         ...(status && { status }),
-        ...(rallyId && { rallyId }),
+        ...(country && { country: { contains: country, mode: 'insensitive' } }),
         ...(search && {
           OR: [
             { partnerOrganizationName: { contains: search, mode: 'insensitive' } },
@@ -28,16 +29,6 @@ export const nominationQueries = {
           take: limit,
           orderBy: { [orderBy]: orderDirection },
           include: {
-            rally: {
-              select: {
-                id: true,
-                slug: true,
-                title: true,
-                startDate: true,
-                endDate: true,
-                status: true,
-              },
-            },
             tenant: {
               select: {
                 id: true,
@@ -68,23 +59,14 @@ export const nominationQueries = {
   },
 
   // Get single nomination by ID
-  nomination: async (_: any, args: any, context: any) => {
+  getNomination: async (_: any, args: any, context: any) => {
     const { id } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const nomination = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, ...(!isSuperAdmin && { tenantId: context.tenant?.id }), deletedAt: null },
         include: {
-          rally: {
-            select: {
-              id: true,
-              slug: true,
-              title: true,
-              startDate: true,
-              endDate: true,
-              status: true,
-            },
-          },
           tenant: true,
         },
       });
@@ -102,12 +84,13 @@ export const nominationQueries = {
   },
 
   // Get pending nominations
-  pendingNominations: async (_: any, args: any, context: any) => {
+  getPendingNominations: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.ParkNominationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         status: 'PENDING',
       };
@@ -118,17 +101,6 @@ export const nominationQueries = {
           skip: (page - 1) * limit,
           take: limit,
           orderBy: { createdAt: 'asc' },
-          include: {
-            rally: {
-              select: {
-                id: true,
-                slug: true,
-                title: true,
-                startDate: true,
-                status: true,
-              },
-            },
-          },
         }),
         context.prisma.parkNomination.count({ where }),
       ]);
@@ -151,15 +123,15 @@ export const nominationQueries = {
   },
 
   // Get approved nominations
-  approvedNominations: async (_: any, args: any, context: any) => {
-    const { page = 1, limit = 20, rallyId } = args;
+  getApprovedNominations: async (_: any, args: any, context: any) => {
+    const { page = 1, limit = 20 } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.ParkNominationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         status: 'APPROVED',
-        ...(rallyId && { rallyId }),
       };
 
       const [nominations, total] = await Promise.all([
@@ -168,16 +140,6 @@ export const nominationQueries = {
           skip: (page - 1) * limit,
           take: limit,
           orderBy: { createdAt: 'desc' },
-          include: {
-            rally: {
-              select: {
-                id: true,
-                slug: true,
-                title: true,
-                startDate: true,
-              },
-            },
-          },
         }),
         context.prisma.parkNomination.count({ where }),
       ]);
@@ -200,61 +162,40 @@ export const nominationQueries = {
   },
 
   // Get nomination statistics
-  nominationStats: async (_: any, args: any, context: any) => {
-    const { rallyId } = args;
-
+  getNominationStats: async (_: any, _args: any, context: any) => {
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
     try {
       const where: Prisma.ParkNominationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
-        ...(rallyId && { rallyId }),
       };
 
-      const [
-        totalNominations,
-        pendingNominations,
-        approvedNominations,
-        rejectedNominations,
-        uniqueCountries,
-      ] = await Promise.all([
+      const [total, pending, underReview, approved, rejected, selected, notSelected] = await Promise.all([
         context.prisma.parkNomination.count({ where }),
         context.prisma.parkNomination.count({ where: { ...where, status: 'PENDING' } }),
+        context.prisma.parkNomination.count({ where: { ...where, status: 'UNDER_REVIEW' } }),
         context.prisma.parkNomination.count({ where: { ...where, status: 'APPROVED' } }),
         context.prisma.parkNomination.count({ where: { ...where, status: 'REJECTED' } }),
-        context.prisma.parkNomination.groupBy({
-          by: ['country'],
-          where,
-        }).then(groups => groups.length),
+        context.prisma.parkNomination.count({ where: { ...where, status: 'SELECTED' } }),
+        context.prisma.parkNomination.count({ where: { ...where, status: 'NOT_SELECTED' } }),
       ]);
 
-      const approvalRate = totalNominations > 0
-        ? Math.round((approvedNominations / totalNominations) * 100)
-        : 0;
-
-      return {
-        totalNominations,
-        pendingNominations,
-        approvedNominations,
-        rejectedNominations,
-        uniqueCountryCount: uniqueCountries,
-        approvalRate,
-      };
+      return { total, pending, underReview, approved, rejected, selected, notSelected };
     } catch (error) {
       console.error('Error fetching nomination stats:', error);
       throw new Error('Failed to fetch nomination stats');
     }
   },
 
-  // Check if email has already nominated a park for a rally
-  hasNominated: async (_: any, args: any, context: any) => {
-    const { rallyId, email } = args;
+  // Check if email has already submitted a nomination for this tenant
+  checkHasNominated: async (_: any, args: any, context: any) => {
+    const { email } = args;
 
     try {
       const nomination = await context.prisma.parkNomination.findFirst({
         where: {
-          rallyId,
-          nominatorEmail: email.toLowerCase(),
-          tenantId: context.tenantId,
+          parkContactEmail: email.toLowerCase(),
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });

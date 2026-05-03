@@ -7,32 +7,33 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all rallies with pagination and filters
-    rallies(
+    getRallies(
       page: Int
       limit: Int
       status: RallyStatus
       search: String
       orderBy: String
       orderDirection: String
+      tenantId: ID
     ): PaginatedRallies!
 
     # Get single rally by slug or ID
-    rally(slug: String, id: ID): Rally
+    getRally(slug: String, id: ID): Rally
 
     # Get upcoming rallies
-    upcomingRallies(
+    getUpcomingRallies(
       page: Int
       limit: Int
     ): PaginatedRallies!
 
     # Get past rallies
-    pastRallies(
+    getPastRallies(
       page: Int
       limit: Int
     ): PaginatedRallies!
 
     # Get recruiting rallies (accepting applications)
-    recruitingRallies: [Rally!]!
+    getRecruitingRallies: [Rally!]!
   }
 
   # ============================================
@@ -41,7 +42,7 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all applications with filters
-    applications(
+    getApplications(
       page: Int
       limit: Int
       status: ApplicationStatus
@@ -52,28 +53,28 @@ export const rallyQueries = gql`
     ): PaginatedApplications!
 
     # Get single application by ID
-    application(id: ID!): RallyApplication
+    getApplication(id: ID!): RallyApplication
 
     # Get pending applications
-    pendingApplications(
+    getPendingApplications(
       page: Int
       limit: Int
     ): PaginatedApplications!
 
     # Get approved applications
-    approvedApplications(
+    getApprovedApplications(
       page: Int
       limit: Int
       rallyId: ID
     ): PaginatedApplications!
 
     # Get application stats
-    applicationStats(
+    getApplicationStats(
       rallyId: ID
     ): ApplicationStats
 
     # Check if email has already applied to a rally
-    hasApplied(rallyId: ID!, email: String!): Boolean!
+    checkHasApplied(rallyId: ID!, email: String!): Boolean!
   }
 
   # Application Statistics
@@ -95,7 +96,7 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all nominations with filters
-    nominations(
+    getNominations(
       page: Int
       limit: Int
       status: NominationStatus
@@ -105,41 +106,43 @@ export const rallyQueries = gql`
     ): PaginatedNominations!
 
     # Get single nomination by ID
-    nomination(id: ID!): ParkNomination
+    getNomination(id: ID!): ParkNomination
 
     # Get pending nominations
-    pendingNominations(
+    getPendingNominations(
       page: Int
       limit: Int
     ): PaginatedNominations!
 
     # Get approved nominations
-    approvedNominations(
+    getApprovedNominations(
       page: Int
       limit: Int
       rallyId: ID
     ): PaginatedNominations!
 
     # Get nominations by country
-    nominationsByCountry(
+    getNominationsByCountry(
       country: String!
       page: Int
       limit: Int
     ): PaginatedNominations!
 
     # Get nomination stats
-    nominationStats: NominationStats
+    getNominationStats: NominationStats
 
     # Check if email has already nominated a park for a rally
-    hasNominated(rallyId: ID!, email: String!): Boolean!
+    checkHasNominated(rallyId: ID!, email: String!): Boolean!
   }
 
   type NominationStats {
-    totalNominations: Int!
-    pendingNominations: Int!
-    approvedNominations: Int!
-    selectedNominations: Int!
-    countriesRepresented: Int!
+    total: Int!
+    pending: Int!
+    underReview: Int!
+    approved: Int!
+    rejected: Int!
+    selected: Int!
+    notSelected: Int!
   }
 
   # ============================================
@@ -148,7 +151,7 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all park partnerships
-    parkPartnerships(
+    getParkPartnerships(
       page: Int
       limit: Int
       status: PartnershipStatus
@@ -156,16 +159,16 @@ export const rallyQueries = gql`
     ): [ParkPartnership!]!
 
     # Get single partnership by ID
-    parkPartnership(id: ID!): ParkPartnership
+    getParkPartnership(id: ID!): ParkPartnership
 
     # Get active partnerships
-    activePartnerships: [ParkPartnership!]!
+    getActivePartnerships: [ParkPartnership!]!
 
     # Get partnerships by country
-    partnershipsByCountry(country: String!): [ParkPartnership!]!
+    getPartnershipsByCountry(country: String!): [ParkPartnership!]!
 
     # Get partnership statistics
-    partnershipStats(rallyId: ID): PartnershipStats
+    getPartnershipStats(rallyId: ID): PartnershipStats
   }
 
   type PartnershipStats {
@@ -182,7 +185,7 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all stories with pagination and filters
-    stories(
+    getStories(
       page: Int
       limit: Int
       type: StoryType
@@ -195,10 +198,10 @@ export const rallyQueries = gql`
     ): PaginatedStories!
 
     # Get single story by slug or ID
-    story(slug: String, id: ID): Story
+    getStory(slug: String, id: ID): Story
 
     # Get published stories (public)
-    publishedStories(
+    getPublishedStories(
       page: Int
       limit: Int
       type: StoryType
@@ -206,35 +209,35 @@ export const rallyQueries = gql`
     ): PaginatedStories!
 
     # Get featured stories
-    featuredStories(limit: Int): [Story!]!
+    getFeaturedStories(limit: Int): [Story!]!
 
     # Get stories by type
-    storiesByType(
+    getStoriesByType(
       type: StoryType!
       page: Int
       limit: Int
     ): PaginatedStories!
 
     # Get ranger profiles
-    rangerProfiles: [Story!]!
+    getRangerProfiles: [Story!]!
 
     # Get rider profiles
-    riderProfiles: [Story!]!
+    getRiderProfiles: [Story!]!
 
     # Get impact stories
-    impactStories(page: Int, limit: Int): PaginatedStories!
+    getImpactStories(page: Int, limit: Int): PaginatedStories!
 
     # Get draft stories (admin only)
-    draftStories(
+    getDraftStories(
       page: Int
       limit: Int
     ): PaginatedStories!
 
     # Get story statistics (admin only)
-    storyStats(rallyId: ID): StoryStats
+    getStoryStats(rallyId: ID): StoryStats
 
     # Get related stories
-    relatedStories(storyId: ID!): [Story!]!
+    getRelatedStories(storyId: ID!): [Story!]!
   }
 
   type StoryStats {
@@ -253,19 +256,19 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all media for a rally
-    rallyMedia(rallyId: ID!): [RallyMedia!]!
+    getRallyMedia(rallyId: ID!): [RallyMedia!]!
 
     # Get single media by ID
-    media(id: ID!): RallyMedia
+    getMedia(id: ID!): RallyMedia
 
     # Get featured media for a rally
-    featuredRallyMedia(rallyId: ID!): [RallyMedia!]!
+    getFeaturedRallyMedia(rallyId: ID!): [RallyMedia!]!
 
     # Get media by type
-    rallyMediaByType(rallyId: ID!, type: MediaTypeR!): [RallyMedia!]!
+    getRallyMediaByType(rallyId: ID!, type: MediaTypeR!): [RallyMedia!]!
 
     # Get single media item by ID
-    rallyMediaItem(id: ID!): RallyMedia
+    getRallyMediaItem(id: ID!): RallyMedia
   }
 
   # ============================================
@@ -274,23 +277,23 @@ export const rallyQueries = gql`
 
   extend type Query {
     # Get all newsletter subscriptions
-    newsletterSubscriptions(
+    getNewsletterSubscriptions(
       page: Int
       limit: Int
       status: SubscriptionStatus
     ): [NewsletterSubscription!]!
 
     # Get subscription by email
-    newsletterSubscription(email: String!): NewsletterSubscription
+    getNewsletterSubscription(email: String!): NewsletterSubscription
 
     # Check if email is subscribed
-    isSubscribed(email: String!): Boolean!
+    checkIsSubscribed(email: String!): Boolean!
 
     # Get subscriber stats
-    subscriberStats: SubscriberStats
+    getSubscriberStats: SubscriberStats
 
     # Get newsletter statistics
-    newsletterStats: NewsletterStats
+    getNewsletterStats: NewsletterStats
   }
 
   type NewsletterStats {

@@ -14,6 +14,7 @@ import { storyQueries } from './queries/story';
 import { mediaQueries } from './queries/media';
 import { partnershipQueries } from './queries/partnership';
 import { newsletterQueries } from './queries/newsletter';
+import { teamQueries } from './queries/team';
 
 // Import mutations
 import { authMutations } from './mutations/auth';
@@ -30,6 +31,7 @@ import { storyMutations } from './mutations/story';
 import { mediaMutations } from './mutations/media';
 import { partnershipMutations } from './mutations/partnership';
 import { newsletterMutations } from './mutations/newsletter';
+import { teamMutations } from './mutations/team';
 
 /**
  * Custom scalar resolvers
@@ -79,6 +81,11 @@ const Tenant = {
   isActive: (parent: any) => parent.status === 'ACTIVE',
 };
 
+const Rally = {
+  // Old records may have null before @default(0) was added
+  currentParticipants: (parent: any) => parent.currentParticipants ?? 0,
+};
+
 /**
  * Combined Resolvers
  * Merges all domain resolvers with scalars and base resolvers
@@ -90,6 +97,7 @@ export const resolvers = {
 
   // Type Resolvers
   Tenant,
+  Rally,
 
   // Root Query
   Query: {
@@ -115,6 +123,7 @@ export const resolvers = {
     ...mediaQueries,
     ...partnershipQueries,
     ...newsletterQueries,
+    ...teamQueries,
   },
 
   // Root Mutation
@@ -134,6 +143,7 @@ export const resolvers = {
     ...mediaMutations,
     ...partnershipMutations,
     ...newsletterMutations,
+    ...teamMutations,
   },
 };
 

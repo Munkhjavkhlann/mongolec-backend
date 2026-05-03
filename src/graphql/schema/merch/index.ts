@@ -195,7 +195,7 @@ export const merchSchema = gql`
   # ============================================
 
   extend type Query {
-    merchProducts(
+    getMerchProducts(
       language: String
       status: String
       categoryId: ID
@@ -205,9 +205,9 @@ export const merchSchema = gql`
       limit: Int
       offset: Int
     ): [MerchProduct!]!
-    merchProductById(id: ID!, language: String): MerchProduct
-    merchCategories(language: String): [MerchCategory!]!
-    merchCategoryById(id: ID!, language: String): MerchCategory
+    getMerchProductById(id: ID!, language: String): MerchProduct
+    getMerchCategories(language: String): [MerchCategory!]!
+    getMerchCategoryById(id: ID!, language: String): MerchCategory
   }
 
   # ============================================

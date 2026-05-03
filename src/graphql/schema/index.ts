@@ -5,6 +5,7 @@ import { merchSchema } from './merch';
 import { contentSchema } from './content';
 import { uploadTypeDefs } from "./upload";
 import { rallySchema } from './rally';
+import { teamSchema } from './team';
 
 /**
  * Base Schema
@@ -50,6 +51,7 @@ export const typeDefs = [
   contentSchema,
   uploadTypeDefs,
   rallySchema,
+  teamSchema,
 ];
 
 export default typeDefs;

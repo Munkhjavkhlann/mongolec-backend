@@ -11,7 +11,7 @@ export const tenantQueries = {
   /**
    * Get single tenant by ID
    */
-  tenantById: async (_parent: any, args: any, context: GraphQLContext) => {
+  getTenantById: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { id } = args;
 
@@ -33,7 +33,7 @@ export const tenantQueries = {
   /**
    * Get tenant by slug
    */
-  tenantBySlug: async (_parent: any, args: any, context: GraphQLContext) => {
+  getTenantBySlug: async (_parent: any, args: any, context: GraphQLContext) => {
     try {
       const { slug } = args;
 

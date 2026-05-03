@@ -9,13 +9,15 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'create'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:create');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:create required');
     }
+
+    const isSuperAdmin = context.user.roles?.includes('super_admin');
+    const { tenantId: inputTenantId, ...rallyData } = data;
+    const resolvedTenantId = isSuperAdmin && inputTenantId ? inputTenantId : context.tenant?.id;
 
     try {
       // Check if slug already exists
@@ -23,7 +25,7 @@ export const rallyMutations = {
         where: {
           slug_tenantId: {
             slug: data.slug,
-            tenantId: context.tenantId,
+            tenantId: resolvedTenantId,
           },
         },
       });
@@ -40,9 +42,9 @@ export const rallyMutations = {
       // Create rally
       const rally = await context.prisma.rally.create({
         data: {
-          ...data,
+          ...rallyData,
           duration,
-          tenantId: context.tenantId,
+          tenantId: resolvedTenantId,
           createdById: context.user.id,
         },
         include: {
@@ -76,18 +78,18 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'update'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:update');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:update required');
     }
 
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
+
     try {
       // Verify rally exists and belongs to tenant
       const existing = await context.prisma.rally.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, deletedAt: null, ...(isSuperAdmin ? {} : { tenantId: context.tenant?.id }) },
       });
 
       if (!existing) {
@@ -100,7 +102,7 @@ export const rallyMutations = {
           where: {
             slug_tenantId: {
               slug: data.slug,
-              tenantId: context.tenantId,
+              tenantId: context.tenant?.id,
             },
           },
         });
@@ -167,18 +169,18 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'delete'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:delete');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:delete required');
     }
 
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
+
     try {
       // Verify rally exists
       const existing = await context.prisma.rally.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, deletedAt: null, ...(isSuperAdmin ? {} : { tenantId: context.tenant?.id }) },
       });
 
       if (!existing) {
@@ -203,7 +205,7 @@ export const rallyMutations = {
   },
 
   // Update rally status
-  updateRallyStatus: async (_: any, args: any, context: any) => {
+  changeRallyStatus: async (_: any, args: any, context: any) => {
     const { id, status } = args;
 
     // Check authentication
@@ -212,18 +214,18 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'update'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:update');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:update required');
     }
 
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
+
     try {
       // Verify rally exists
       const existing = await context.prisma.rally.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, deletedAt: null, ...(isSuperAdmin ? {} : { tenantId: context.tenant?.id }) },
       });
 
       if (!existing) {
@@ -248,7 +250,7 @@ export const rallyMutations = {
   },
 
   // Update participant count
-  updateParticipantCount: async (_: any, args: any, context: any) => {
+  updateRallyParticipantCount: async (_: any, args: any, context: any) => {
     const { id, count } = args;
 
     // Check authentication
@@ -257,18 +259,18 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'update'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:update');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:update required');
     }
 
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
+
     try {
       // Verify rally exists
       const existing = await context.prisma.rally.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, deletedAt: null, ...(isSuperAdmin ? {} : { tenantId: context.tenant?.id }) },
       });
 
       if (!existing) {
@@ -293,7 +295,7 @@ export const rallyMutations = {
   },
 
   // Toggle recruiting status
-  toggleRecruiting: async (_: any, args: any, context: any) => {
+  toggleRallyRecruiting: async (_: any, args: any, context: any) => {
     const { id } = args;
 
     // Check authentication
@@ -302,18 +304,18 @@ export const rallyMutations = {
     }
 
     // Check permissions
-    const hasPermission = context.user.permissions?.some((p: any) =>
-      p.resource === 'rally' && p.action === 'update'
-    );
+    const hasPermission = context.user.permissions?.includes('rally:update');
 
     if (!hasPermission) {
       throw new Error('Permission denied: rally:update required');
     }
 
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
+
     try {
       // Get current rally
       const rally = await context.prisma.rally.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, deletedAt: null, ...(isSuperAdmin ? {} : { tenantId: context.tenant?.id }) },
       });
 
       if (!rally) {
@@ -334,6 +336,48 @@ export const rallyMutations = {
       if (error instanceof Error && error.message === 'Rally not found') throw error;
       console.error('Error toggling recruiting:', error);
       throw new Error('Failed to toggle recruiting status');
+    }
+  },
+
+  // Change newsletter subscription status (admin only)
+  changeSubscriptionStatus: async (_: any, args: any, context: any) => {
+    const { email, status } = args;
+
+    // Check authentication
+    if (!context.user) {
+      throw new Error('Authentication required');
+    }
+
+    // Check permissions
+    const hasPermission = context.user.permissions?.some((p: any) =>
+      p.resource === 'newsletter' && p.action === 'manage'
+    );
+
+    if (!hasPermission) {
+      throw new Error('Permission denied: newsletter:manage required');
+    }
+
+    try {
+      // Verify subscription exists
+      const existing = await context.prisma.newsletterSubscription.findFirst({
+        where: { email: email.toLowerCase(), tenantId: context.tenant?.id, deletedAt: null },
+      });
+
+      if (!existing) {
+        throw new Error('Newsletter subscription not found');
+      }
+
+      // Update status
+      const subscription = await context.prisma.newsletterSubscription.update({
+        where: { id: existing.id },
+        data: { status },
+      });
+
+      return subscription;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Newsletter subscription not found') throw error;
+      console.error('Error changing subscription status:', error);
+      throw new Error('Failed to change subscription status');
     }
   },
 };

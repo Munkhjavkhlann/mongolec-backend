@@ -5,6 +5,7 @@ import { createLogger } from '@/utils/logger';
 import { hashEmail } from '@/utils';
 import { AuthenticationError, NotFoundError, ValidationError, ConflictError } from '@/utils/errors';
 import type { LoginArgs, RegisterArgs } from '@/graphql/types/args';
+import { redisClient } from '@/database/redis';
 
 const logger = createLogger('AUTH_MUTATIONS');
 
@@ -136,7 +137,7 @@ export const authMutations = {
           lastName,
           password: hashedPassword,
           tenantId: tenant.id,
-          isActive: false,  // Requires admin approval
+          isActive: false, // Requires admin approval
         },
         include: {
           tenant: true,
@@ -163,6 +164,11 @@ export const authMutations = {
    * User logout - clears the httpOnly cookie
    */
   logout: async (_parent: unknown, _args: unknown, context: GraphQLContext) => {
+    // Invalidate Redis auth cache so the next login triggers a fresh DB lookup
+    if (context.user?.id) {
+      await redisClient.del(`auth:user:${context.user.id}`);
+    }
+
     context.res.clearCookie('auth-token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -170,7 +176,7 @@ export const authMutations = {
       path: '/',
     });
 
-    logger.info('User logged out successfully');
+    logger.info('User logged out successfully', { userId: context.user?.id });
 
     return true;
   },

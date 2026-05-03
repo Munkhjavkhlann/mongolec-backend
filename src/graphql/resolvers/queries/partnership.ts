@@ -2,55 +2,35 @@ import { Prisma } from '@prisma/client';
 
 export const partnershipQueries = {
   // Get all partnerships with filters
-  parkPartnerships: async (_: any, args: any, context: any) => {
-    const { rallyId, country, partnershipStatus, page = 1, limit = 20, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+  getParkPartnerships: async (_: any, args: any, context: any) => {
+    const { rallyId, country, status, page = 1, limit = 20, orderBy = 'createdAt', orderDirection = 'desc' } = args;
 
     try {
       const where: Prisma.ParkPartnershipWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(rallyId && { rallyId }),
         ...(country && { country }),
-        ...(partnershipStatus && { partnershipStatus }),
+        ...(status && { status }),
       };
 
-      const [partnerships, total] = await Promise.all([
-        context.prisma.parkPartnership.findMany({
-          where,
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: { [orderBy]: orderDirection },
-          include: {
-            rally: {
-              select: {
-                id: true,
-                slug: true,
-                title: true,
-              },
-            },
-            tenant: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
+      const partnerships = await context.prisma.parkPartnership.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [orderBy]: orderDirection },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
             },
           },
-        }),
-        context.prisma.parkPartnership.count({ where }),
-      ]);
-
-      return {
-        partnerships,
-        pagination: {
-          total,
-          totalPages: Math.ceil(total / limit),
-          currentPage: page,
-          perPage: limit,
-          hasNextPage: page * limit < total,
-          hasPreviousPage: page > 1,
         },
-      };
+      });
+
+      return partnerships;
     } catch (error) {
       console.error('Error fetching park partnerships:', error);
       throw new Error('Failed to fetch park partnerships');
@@ -58,22 +38,13 @@ export const partnershipQueries = {
   },
 
   // Get single partnership by ID
-  parkPartnership: async (_: any, args: any, context: any) => {
+  getParkPartnership: async (_: any, args: any, context: any) => {
     const { id } = args;
 
     try {
       const partnership = await context.prisma.parkPartnership.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
         include: {
-          rally: {
-            select: {
-              id: true,
-              slug: true,
-              title: true,
-              startDate: true,
-              endDate: true,
-            },
-          },
           tenant: true,
         },
       });
@@ -91,12 +62,12 @@ export const partnershipQueries = {
   },
 
   // Get partnership statistics
-  partnershipStats: async (_: any, args: any, context: any) => {
+  getPartnershipStats: async (_: any, args: any, context: any) => {
     const { rallyId } = args;
 
     try {
       const where: Prisma.ParkPartnershipWhereInput = {
-        tenantId: context.tenantId,
+        tenantId: context.tenant?.id,
         deletedAt: null,
         ...(rallyId && { rallyId }),
       };
@@ -109,9 +80,9 @@ export const partnershipQueries = {
         uniqueCountries,
       ] = await Promise.all([
         context.prisma.parkPartnership.count({ where }),
-        context.prisma.parkPartnership.count({ where: { ...where, partnershipStatus: 'ACTIVE' } }),
-        context.prisma.parkPartnership.count({ where: { ...where, partnershipStatus: 'PROSPECTIVE' } }),
-        context.prisma.parkPartnership.count({ where: { ...where, partnershipStatus: 'CONFIRMED' } }),
+        context.prisma.parkPartnership.count({ where: { ...where, status: 'ACTIVE' } }),
+        context.prisma.parkPartnership.count({ where: { ...where, status: 'PROSPECTIVE' } }),
+        context.prisma.parkPartnership.count({ where: { ...where, status: 'CONFIRMED' } }),
         context.prisma.parkPartnership.groupBy({
           by: ['country'],
           where,

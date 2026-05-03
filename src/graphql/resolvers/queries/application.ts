@@ -2,12 +2,13 @@ import { Prisma } from '@prisma/client';
 
 export const applicationQueries = {
   // Get all applications with filters
-  applications: async (_: any, args: any, context: any) => {
+  getApplications: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, status, rallyId, search, orderBy = 'createdAt', orderDirection = 'desc' } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.RallyApplicationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         ...(status && { status }),
         ...(rallyId && { rallyId }),
@@ -68,12 +69,13 @@ export const applicationQueries = {
   },
 
   // Get single application by ID
-  application: async (_: any, args: any, context: any) => {
+  getApplication: async (_: any, args: any, context: any) => {
     const { id } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const application = await context.prisma.rallyApplication.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, ...(!isSuperAdmin && { tenantId: context.tenant?.id }), deletedAt: null },
         include: {
           rally: {
             select: {
@@ -104,12 +106,13 @@ export const applicationQueries = {
   },
 
   // Get pending applications
-  pendingApplications: async (_: any, args: any, context: any) => {
+  getPendingApplications: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20 } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.RallyApplicationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         status: 'PENDING',
       };
@@ -153,12 +156,13 @@ export const applicationQueries = {
   },
 
   // Get approved applications
-  approvedApplications: async (_: any, args: any, context: any) => {
+  getApprovedApplications: async (_: any, args: any, context: any) => {
     const { page = 1, limit = 20, rallyId } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.RallyApplicationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         status: { in: ['APPROVED', 'CONFIRMED'] },
         ...(rallyId && { rallyId }),
@@ -202,12 +206,13 @@ export const applicationQueries = {
   },
 
   // Get application statistics
-  applicationStats: async (_: any, args: any, context: any) => {
+  getApplicationStats: async (_: any, args: any, context: any) => {
     const { rallyId } = args;
+    const isSuperAdmin = context.user?.roles?.includes('super_admin');
 
     try {
       const where: Prisma.RallyApplicationWhereInput = {
-        tenantId: context.tenantId,
+        ...(!isSuperAdmin && { tenantId: context.tenant?.id }),
         deletedAt: null,
         ...(rallyId && { rallyId }),
       };
@@ -260,7 +265,7 @@ export const applicationQueries = {
   },
 
   // Check if email has already applied to a rally
-  hasApplied: async (_: any, args: any, context: any) => {
+  checkHasApplied: async (_: any, args: any, context: any) => {
     const { rallyId, email } = args;
 
     try {
@@ -268,7 +273,7 @@ export const applicationQueries = {
         where: {
           rallyId,
           email: email.toLowerCase(),
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });

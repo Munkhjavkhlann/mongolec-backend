@@ -4,51 +4,26 @@ export const nominationMutations = {
     const { data } = args;
 
     try {
-      // Verify rally exists
-      const rally = await context.prisma.rally.findFirst({
-        where: {
-          id: data.rallyId,
-          tenantId: context.tenantId,
-          deletedAt: null,
-        },
-      });
-
-      if (!rally) {
-        throw new Error('Rally not found');
-      }
-
-      // Check if email already nominated for this rally
+      // Check if this partner email already submitted a nomination
       const existing = await context.prisma.parkNomination.findFirst({
         where: {
-          rallyId: data.rallyId,
-          nominatorEmail: data.nominatorEmail.toLowerCase(),
-          tenantId: context.tenantId,
+          partnerContactEmail: data.partnerContactEmail.toLowerCase(),
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });
 
       if (existing) {
-        throw new Error('You have already submitted a nomination for this rally');
+        throw new Error('You have already submitted a nomination');
       }
 
       // Create nomination
       const nomination = await context.prisma.parkNomination.create({
         data: {
           ...data,
-          nominatorEmail: data.nominatorEmail.toLowerCase(),
-          tenantId: context.tenantId,
+          partnerContactEmail: data.partnerContactEmail.toLowerCase(),
+          tenantId: context.tenant?.id,
           status: 'PENDING',
-        },
-        include: {
-          rally: {
-            select: {
-              id: true,
-              slug: true,
-              title: true,
-              startDate: true,
-              endDate: true,
-            },
-          },
         },
       });
 
@@ -61,8 +36,7 @@ export const nominationMutations = {
       };
     } catch (error) {
       if (error instanceof Error && error.message.includes('already submitted')) throw error;
-      if (error instanceof Error && error.message.includes('not found')) throw error;
-      console.error('Error submitting nomination:', error);
+      console.error('Error submitting nomination:', JSON.stringify(error, null, 2), error);
       throw new Error('Failed to submit nomination');
     }
   },
@@ -88,7 +62,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -119,7 +93,7 @@ export const nominationMutations = {
   },
 
   // Update nomination status (admin only)
-  updateNominationStatus: async (_: any, args: any, context: any) => {
+  changeNominationStatus: async (_: any, args: any, context: any) => {
     const { id, status, notes } = args;
 
     // Check authentication
@@ -139,7 +113,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -197,7 +171,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
         include: {
           rally: true,
         },
@@ -256,7 +230,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -305,7 +279,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -354,7 +328,7 @@ export const nominationMutations = {
     try {
       // Verify nomination exists
       const existing = await context.prisma.parkNomination.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {

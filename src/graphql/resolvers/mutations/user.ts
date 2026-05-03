@@ -54,7 +54,7 @@ export const userMutations = {
 
       // Check if user is in the same tenant as admin
       if (context.user.tenantId !== user.tenantId) {
-        throw new AuthorizationError('user:manage', 'You can only approve users in your tenant');
+        throw new AuthorizationError('user:manage');
       }
 
       // Approve user
@@ -109,7 +109,7 @@ export const userMutations = {
 
       // Check if user is in the same tenant as admin
       if (context.user.tenantId !== user.tenantId) {
-        throw new AuthorizationError('user:manage', 'You can only reject users in your tenant');
+        throw new AuthorizationError('user:manage');
       }
 
       // Reject user (keep inactive)
@@ -159,7 +159,7 @@ export const userMutations = {
 
       // Check if user is in the same tenant as admin
       if (context.user.tenantId !== user.tenantId) {
-        throw new AuthorizationError('user:manage', 'You can only activate users in your tenant');
+        throw new AuthorizationError('user:manage');
       }
 
       // Activate user
@@ -214,7 +214,7 @@ export const userMutations = {
 
       // Check if user is in the same tenant as admin
       if (context.user.tenantId !== user.tenantId) {
-        throw new AuthorizationError('user:manage', 'You can only deactivate users in your tenant');
+        throw new AuthorizationError('user:manage');
       }
 
       // Deactivate user

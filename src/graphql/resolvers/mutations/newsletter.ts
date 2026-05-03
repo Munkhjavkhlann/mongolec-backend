@@ -8,7 +8,7 @@ export const newsletterMutations = {
       const existing = await context.prisma.newsletterSubscription.findFirst({
         where: {
           email: data.email.toLowerCase(),
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });
@@ -42,7 +42,7 @@ export const newsletterMutations = {
           email: data.email.toLowerCase(),
           firstName: data.firstName,
           lastName: data.lastName,
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           status: 'ACTIVE',
         },
       });
@@ -70,7 +70,7 @@ export const newsletterMutations = {
       const existing = await context.prisma.newsletterSubscription.findFirst({
         where: {
           email: email.toLowerCase(),
-          tenantId: context.tenantId,
+          tenantId: context.tenant?.id,
           deletedAt: null,
         },
       });
@@ -126,7 +126,7 @@ export const newsletterMutations = {
     try {
       // Verify subscription exists
       const existing = await context.prisma.newsletterSubscription.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
@@ -168,7 +168,7 @@ export const newsletterMutations = {
     try {
       // Verify subscription exists
       const existing = await context.prisma.newsletterSubscription.findFirst({
-        where: { id, tenantId: context.tenantId, deletedAt: null },
+        where: { id, tenantId: context.tenant?.id, deletedAt: null },
       });
 
       if (!existing) {
