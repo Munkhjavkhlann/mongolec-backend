@@ -54,6 +54,8 @@ model Tenant {
   parkNominations   ParkNomination[]
   teamMembers       TeamMember[]
   contactMessages   ContactMessage[]
+  rangers           Ranger[]
+  participants      Participant[]
 
   @@map("tenants")
 }
@@ -868,6 +870,8 @@ model Rally {
   applications    RallyApplication[]
   media           RallyMedia[]
   stories         Story[]
+  rangers         Ranger[]
+  participants    ParticipantRally[]
 
   @@unique([slug, tenantId])
   @@index([tenantId, status])
@@ -1300,4 +1304,68 @@ model ContactMessage {
   @@index([tenantId])
   @@index([tenantId, status])
   @@map("contact_messages")
+}
+
+// ============================================
+// RANGERS & PARTICIPANTS
+// ============================================
+
+model Ranger {
+  id            String   @id @default(cuid())
+  name          String
+  photo         String?
+  parkName      String
+  country       String
+  bio           String?  @db.Text
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
+
+  // Optional link to a rally they were supported by
+  rallyId       String?
+  rally         Rally?   @relation(fields: [rallyId], references: [id])
+
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, displayOrder])
+  @@map("rangers")
+}
+
+model Participant {
+  id           String             @id @default(cuid())
+  firstName    String
+  lastName     String
+  photo        String?
+  country      String
+  bio          String?            @db.Text
+  isActive     Boolean            @default(true)
+  displayOrder Int                @default(0)
+
+  rallies      ParticipantRally[]
+
+  tenantId     String
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  deletedAt    DateTime?
+
+  @@index([tenantId, isActive])
+  @@map("participants")
+}
+
+model ParticipantRally {
+  id            String      @id @default(cuid())
+  participantId String
+  rallyId       String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  rally         Rally       @relation(fields: [rallyId], references: [id], onDelete: Cascade)
+  year          Int?
+  role          String?
+
+  @@unique([participantId, rallyId])
+  @@map("participant_rallies")
 }
