@@ -8,8 +8,8 @@ services:
     environment:
       - NODE_ENV=production
       - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://mongolec:${POSTGRES_PASSWORD}@postgres:5432/mongolec
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
       - JWT_SECRET=${JWT_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - CORS_ORIGIN=${CORS_ORIGIN}
