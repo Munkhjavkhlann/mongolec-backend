@@ -7,7 +7,7 @@ export const rangerQueries = {
     { limit = 20, page = 1, isActive }: { limit?: number; page?: number; isActive?: boolean },
     context: GraphQLContext
   ) => {
-    checkPermission(context, 'content:read');
+    // Public read — no auth required; admin write operations are protected separately
     const tenantId = context.tenant?.id ?? context.user?.tenantId;
     if (!tenantId)
       return {
@@ -57,7 +57,6 @@ export const rangerQueries = {
   },
 
   getRanger: async (_: unknown, { id }: { id: string }, context: GraphQLContext) => {
-    checkPermission(context, 'content:read');
     const tenantId = context.tenant?.id ?? context.user?.tenantId;
     if (!tenantId) return null;
     return context.prisma.ranger.findFirst({

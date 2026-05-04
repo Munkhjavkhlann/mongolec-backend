@@ -7,7 +7,7 @@ export const participantQueries = {
     { limit = 20, page = 1, isActive }: { limit?: number; page?: number; isActive?: boolean },
     context: GraphQLContext
   ) => {
-    checkPermission(context, 'content:read');
+    // Public read — no auth required
     const tenantId = context.tenant?.id ?? context.user?.tenantId;
     if (!tenantId)
       return {
@@ -63,7 +63,6 @@ export const participantQueries = {
   },
 
   getParticipant: async (_: unknown, { id }: { id: string }, context: GraphQLContext) => {
-    checkPermission(context, 'content:read');
     const tenantId = context.tenant?.id ?? context.user?.tenantId;
     if (!tenantId) return null;
 
