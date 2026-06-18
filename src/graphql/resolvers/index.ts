@@ -23,6 +23,7 @@ import { authMutations } from './mutations/auth';
 import { userMutations } from './mutations/user';
 import { newsMutations } from './mutations/news';
 import { merchMutations } from './mutations/merch';
+import { orderMutations } from './mutations/order';
 import { contentMutations } from './mutations/content';
 import { tenantMutations } from './mutations/tenant';
 import { uploadResolvers } from './mutations/upload';
@@ -140,6 +141,7 @@ export const resolvers = {
     ...tenantMutations,
     ...newsMutations,
     ...merchMutations, // Includes variant mutations
+    ...orderMutations, // Guest createMerchOrder + admin status update
     ...contentMutations,
     ...uploadResolvers.Mutation,
     ...rallyMutations,
