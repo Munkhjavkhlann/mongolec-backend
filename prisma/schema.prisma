@@ -810,6 +810,58 @@ enum MerchProductStatus {
 }
 
 // ================================
+// MERCH ORDERS
+// ================================
+
+model MerchOrder {
+  id            String           @id @default(cuid())
+  orderNumber   String           @unique
+  userId        String?
+  customerName  String
+  phone         String
+  email         String?
+  address       String
+  notes         String?
+  status        MerchOrderStatus @default(PENDING)
+  paymentMethod String           @default("BANK_TRANSFER")
+  subtotal      Float
+  total         Float
+  currency      String           @default("MNT")
+  tenantId      String
+  items         MerchOrderItem[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("merch_orders")
+}
+
+model MerchOrderItem {
+  id          String     @id @default(cuid())
+  orderId     String
+  order       MerchOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  name        String
+  image       String?
+  variantId   String?
+  variantName String?
+  unitPrice   Float
+  quantity    Int
+
+  @@index([orderId])
+  @@map("merch_order_items")
+}
+
+enum MerchOrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+// ================================
 // RALLY FOR RANGERS
 // ================================
 
