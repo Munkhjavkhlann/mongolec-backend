@@ -63,6 +63,16 @@ describe('createMerchOrder', () => {
     });
   });
 
+  it('derives tenantId from the product when context has no tenant', async () => {
+    const { context, tx } = buildContext({
+      context: { tenant: undefined },
+      product: { tenantId: 'tenant-from-product' },
+    });
+    await orderMutations.createMerchOrder({}, { input: validInput }, context);
+    const createArg = tx.merchOrder.create.mock.calls[0][0].data;
+    expect(createArg.tenantId).toBe('tenant-from-product');
+  });
+
   it('decrements inventory by the ordered quantity', async () => {
     const { context, tx } = buildContext();
     await orderMutations.createMerchOrder({}, { input: validInput }, context);

@@ -44,8 +44,10 @@ export const createMerchOrder = async (
   if (!input.address?.trim()) throw new ValidationError('Delivery address is required');
   if (!input.items?.length) throw new ValidationError('Cart is empty');
 
-  const tenantId = context.tenant?.id || input.tenantId || undefined;
-  if (!tenantId) throw new ValidationError('Tenant is required');
+  // Tenant is taken from the request context or explicit input, and otherwise
+  // derived from the ordered products themselves (a guest storefront does not
+  // know the real tenant id). Resolved inside the transaction once products load.
+  let tenantId = context.tenant?.id || input.tenantId || undefined;
 
   try {
     const order = await (context.prisma as any).$transaction(async (tx: any) => {
@@ -61,6 +63,7 @@ export const createMerchOrder = async (
         if (product.status !== 'ACTIVE') {
           throw new ValidationError(`Product is not available: ${item.productId}`);
         }
+        if (!tenantId) tenantId = product.tenantId;
         if (
           product.trackInventory &&
           !product.allowBackorder &&
@@ -90,6 +93,8 @@ export const createMerchOrder = async (
       }
 
       const total = subtotal;
+
+      if (!tenantId) throw new ValidationError('Tenant could not be determined for this order');
 
       return tx.merchOrder.create({
         data: {
