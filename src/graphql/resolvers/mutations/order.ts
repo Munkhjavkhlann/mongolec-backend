@@ -3,6 +3,9 @@ import { ValidationError, NotFoundError } from '@/utils/errors';
 import { generateRandomString } from '@/utils/index';
 import { getLocalizedContent } from '@/libs/localization';
 import { createLogger } from '@/utils/logger';
+import { authenticated, withPermission } from '@/graphql/decorators/auth';
+
+const VALID_ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
 const logger = createLogger('MERCH_ORDER_MUTATIONS');
 
@@ -116,6 +119,22 @@ export const createMerchOrder = async (
   }
 };
 
+export const updateMerchOrderStatus = withPermission('merch:update')(
+  authenticated(
+    async (_parent: unknown, args: { id: string; status: string }, context: GraphQLContext) => {
+      if (!VALID_ORDER_STATUSES.includes(args.status)) {
+        throw new ValidationError(`Invalid status: ${args.status}`);
+      }
+      return context.prisma.merchOrder.update({
+        where: { id: args.id },
+        data: { status: args.status as any },
+        include: { items: true },
+      });
+    }
+  )
+);
+
 export const orderMutations = {
   createMerchOrder,
+  updateMerchOrderStatus,
 };

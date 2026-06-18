@@ -108,3 +108,44 @@ describe('createMerchOrder', () => {
     ).rejects.toThrow('not found');
   });
 });
+
+describe('updateMerchOrderStatus', () => {
+  function adminCtx() {
+    return {
+      prisma: {
+        merchOrder: {
+          update: jest.fn().mockResolvedValue({ id: 'order-1', status: 'CONFIRMED', items: [] }),
+        },
+      },
+      user: { id: 'admin-1', permissions: ['merch:update'], roles: ['admin'] },
+    } as any;
+  }
+
+  it('updates an order status for an authorized admin', async () => {
+    const context = adminCtx();
+    const result = await orderMutations.updateMerchOrderStatus(
+      {},
+      { id: 'order-1', status: 'CONFIRMED' },
+      context
+    );
+    expect(result.status).toBe('CONFIRMED');
+    expect(context.prisma.merchOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'order-1' }, data: { status: 'CONFIRMED' } })
+    );
+  });
+
+  it('rejects an invalid status value', async () => {
+    const context = adminCtx();
+    await expect(
+      orderMutations.updateMerchOrderStatus({}, { id: 'order-1', status: 'BOGUS' }, context)
+    ).rejects.toThrow('Invalid status');
+  });
+
+  it('rejects a user lacking merch:update', async () => {
+    const context = adminCtx();
+    context.user.permissions = [];
+    await expect(
+      orderMutations.updateMerchOrderStatus({}, { id: 'order-1', status: 'CONFIRMED' }, context)
+    ).rejects.toThrow();
+  });
+});
