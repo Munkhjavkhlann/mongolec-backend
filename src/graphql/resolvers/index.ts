@@ -6,6 +6,7 @@ import { userQueries } from './queries/user';
 import { tenantQueries } from './queries/tenant';
 import { newsQueries } from './queries/news';
 import { merchQueries } from './queries/merch';
+import { orderQueries } from './queries/order';
 import { contentQueries } from './queries/content';
 import { rallyQueries } from './queries/rally';
 import { applicationQueries } from './queries/application';
@@ -120,6 +121,7 @@ export const resolvers = {
     ...tenantQueries,
     ...newsQueries,
     ...merchQueries,
+    ...orderQueries,
     ...contentQueries,
     ...rallyQueries,
     ...applicationQueries,
