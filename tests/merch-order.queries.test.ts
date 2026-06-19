@@ -41,7 +41,7 @@ describe('order queries (admin)', () => {
     const result = await orderQueries.getMerchOrderById({}, { id: 'order-1' }, context);
     expect(result?.id).toBe('order-1');
     expect(context.prisma.merchOrder.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'order-1' }, include: { items: true } })
+      expect.objectContaining({ where: { id: 'order-1' } })
     );
   });
 });

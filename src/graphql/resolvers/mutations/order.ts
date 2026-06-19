@@ -6,6 +6,7 @@ import { createLogger } from '@/utils/logger';
 import { authenticated, withPermission } from '@/graphql/decorators/auth';
 
 const VALID_ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+const VALID_DELIVERY_METHODS = ['DELIVERY', 'PICKUP'];
 
 const logger = createLogger('MERCH_ORDER_MUTATIONS');
 
@@ -20,10 +21,11 @@ export interface CreateMerchOrderInput {
   customerName: string;
   phone: string;
   email?: string | null;
-  address: string;
+  address?: string | null;
   notes?: string | null;
   currency?: string | null;
   tenantId?: string | null;
+  deliveryMethod?: string | null;
   items: CreateMerchOrderItemInput[];
 }
 
@@ -39,9 +41,18 @@ export const createMerchOrder = async (
 ) => {
   const { input } = args;
 
+  const deliveryMethod = (input.deliveryMethod || 'DELIVERY').toUpperCase();
+  if (!VALID_DELIVERY_METHODS.includes(deliveryMethod)) {
+    throw new ValidationError(`Invalid delivery method: ${input.deliveryMethod}`);
+  }
+
   if (!input.customerName?.trim()) throw new ValidationError('Customer name is required');
   if (!input.phone?.trim()) throw new ValidationError('Phone is required');
-  if (!input.address?.trim()) throw new ValidationError('Delivery address is required');
+  // A delivery address is only required when the order is being shipped; office
+  // pickup orders do not need one.
+  if (deliveryMethod === 'DELIVERY' && !input.address?.trim()) {
+    throw new ValidationError('Delivery address is required');
+  }
   if (!input.items?.length) throw new ValidationError('Cart is empty');
 
   // Tenant is taken from the request context or explicit input, and otherwise
@@ -103,10 +114,11 @@ export const createMerchOrder = async (
           customerName: input.customerName.trim(),
           phone: input.phone.trim(),
           email: input.email ?? null,
-          address: input.address.trim(),
+          address: input.address?.trim() || (deliveryMethod === 'PICKUP' ? 'Office pickup' : ''),
           notes: input.notes ?? null,
           status: 'PENDING',
           paymentMethod: 'BANK_TRANSFER',
+          deliveryMethod,
           subtotal,
           total,
           currency: input.currency ?? 'MNT',
@@ -139,7 +151,30 @@ export const updateMerchOrderStatus = withPermission('merch:update')(
   )
 );
 
+/**
+ * Guest-callable: the customer clicks "I've paid" on the confirmation screen after
+ * making the bank transfer. This stamps paymentClaimedAt so the admin sees the order
+ * needs payment verification. No auth — the order id is the only handle a guest has.
+ */
+export const markMerchOrderPaid = async (
+  _parent: unknown,
+  args: { id: string },
+  context: GraphQLContext
+) => {
+  const order = await context.prisma.merchOrder.findUnique({ where: { id: args.id } });
+  if (!order) throw new NotFoundError('Order');
+
+  const updated = await context.prisma.merchOrder.update({
+    where: { id: args.id },
+    data: { paymentClaimedAt: new Date() },
+    include: { items: true },
+  });
+  logger.info(`Order ${updated.orderNumber} marked as paid by customer (awaiting verification)`);
+  return updated;
+};
+
 export const orderMutations = {
   createMerchOrder,
   updateMerchOrderStatus,
+  markMerchOrderPaid,
 };

@@ -28,10 +28,23 @@ function buildContext(overrides: any = {}) {
         ),
     },
   };
-  const prisma = { $transaction: jest.fn(async (cb: any) => cb(tx)) };
+  const prisma = {
+    $transaction: jest.fn(async (cb: any) => cb(tx)),
+    merchOrder: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ id: 'order-1', orderNumber: 'MEC-20260619-ABC123' }),
+      update: jest
+        .fn()
+        .mockImplementation(({ data }: any) =>
+          Promise.resolve({ id: 'order-1', orderNumber: 'MEC-20260619-ABC123', ...data, items: [] })
+        ),
+    },
+  };
   return {
     context: { prisma, user: undefined, tenant: { id: 'tenant-1' }, ...overrides.context } as any,
     tx,
+    prisma,
     product,
   };
 }
@@ -82,6 +95,23 @@ describe('createMerchOrder', () => {
     });
   });
 
+  it('defaults deliveryMethod to DELIVERY', async () => {
+    const { context, tx } = buildContext();
+    await orderMutations.createMerchOrder({}, { input: validInput }, context);
+    expect(tx.merchOrder.create.mock.calls[0][0].data.deliveryMethod).toBe('DELIVERY');
+  });
+
+  it('allows a PICKUP order without a delivery address', async () => {
+    const { context, tx } = buildContext();
+    const order = await orderMutations.createMerchOrder(
+      {},
+      { input: { ...validInput, address: undefined, deliveryMethod: 'PICKUP' } },
+      context
+    );
+    expect(order.deliveryMethod).toBe('PICKUP');
+    expect(tx.merchOrder.create.mock.calls[0][0].data.deliveryMethod).toBe('PICKUP');
+  });
+
   it('rejects an empty cart', async () => {
     const { context } = buildContext();
     await expect(
@@ -116,6 +146,28 @@ describe('createMerchOrder', () => {
     await expect(
       orderMutations.createMerchOrder({}, { input: validInput }, context)
     ).rejects.toThrow('not found');
+  });
+});
+
+describe('markMerchOrderPaid', () => {
+  it('stamps paymentClaimedAt for a guest', async () => {
+    const { context, prisma } = buildContext();
+    const result = await orderMutations.markMerchOrderPaid({}, { id: 'order-1' }, context);
+    expect(prisma.merchOrder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'order-1' },
+        data: expect.objectContaining({ paymentClaimedAt: expect.any(Date) }),
+      })
+    );
+    expect(result.paymentClaimedAt).toBeInstanceOf(Date);
+  });
+
+  it('throws NotFound for a missing order', async () => {
+    const { context, prisma } = buildContext();
+    prisma.merchOrder.findUnique.mockResolvedValueOnce(null);
+    await expect(orderMutations.markMerchOrderPaid({}, { id: 'nope' }, context)).rejects.toThrow(
+      'not found'
+    );
   });
 });
 

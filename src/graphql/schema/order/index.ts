@@ -31,6 +31,8 @@ export const orderSchema = gql`
     notes: String
     status: String!
     paymentMethod: String!
+    deliveryMethod: String!
+    paymentClaimedAt: DateTime
     subtotal: Float!
     total: Float!
     currency: String!
@@ -55,10 +57,11 @@ export const orderSchema = gql`
     customerName: String!
     phone: String!
     email: String
-    address: String!
+    address: String
     notes: String
     currency: String
     tenantId: String
+    deliveryMethod: String
     items: [CreateMerchOrderItemInput!]!
   }
 
@@ -74,5 +77,6 @@ export const orderSchema = gql`
   extend type Mutation {
     createMerchOrder(input: CreateMerchOrderInput!): MerchOrder!
     updateMerchOrderStatus(id: ID!, status: String!): MerchOrder!
+    markMerchOrderPaid(id: ID!): MerchOrder!
   }
 `;

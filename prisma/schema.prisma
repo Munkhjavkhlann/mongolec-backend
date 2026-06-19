@@ -822,12 +822,14 @@ model MerchOrder {
   email         String?
   address       String
   notes         String?
-  status        MerchOrderStatus @default(PENDING)
-  paymentMethod String           @default("BANK_TRANSFER")
-  subtotal      Float
-  total         Float
-  currency      String           @default("MNT")
-  tenantId      String
+  status           MerchOrderStatus @default(PENDING)
+  paymentMethod    String           @default("BANK_TRANSFER")
+  deliveryMethod   String           @default("DELIVERY")
+  paymentClaimedAt DateTime?
+  subtotal         Float
+  total            Float
+  currency         String           @default("MNT")
+  tenantId         String
   items         MerchOrderItem[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
