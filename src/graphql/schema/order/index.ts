@@ -38,6 +38,7 @@ export const orderSchema = gql`
     currency: String!
     tenantId: String!
     items: [MerchOrderItem!]!
+    payments: [Payment!]!
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -77,6 +78,5 @@ export const orderSchema = gql`
   extend type Mutation {
     createMerchOrder(input: CreateMerchOrderInput!): MerchOrder!
     updateMerchOrderStatus(id: ID!, status: String!): MerchOrder!
-    markMerchOrderPaid(id: ID!): MerchOrder!
   }
 `;
