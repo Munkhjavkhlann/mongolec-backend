@@ -3,6 +3,7 @@ import { authSchema } from './auth';
 import { newsSchema } from './news';
 import { merchSchema } from './merch';
 import { orderSchema } from './order';
+import { paymentSchema } from './payment';
 import { contentSchema } from './content';
 import { uploadTypeDefs } from './upload';
 import { rallySchema } from './rally';
@@ -52,6 +53,7 @@ export const typeDefs = [
   newsSchema,
   merchSchema,
   orderSchema,
+  paymentSchema,
   contentSchema,
   uploadTypeDefs,
   rallySchema,
