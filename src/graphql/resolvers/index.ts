@@ -38,6 +38,8 @@ import { newsletterMutations } from './mutations/newsletter';
 import { teamMutations } from './mutations/team';
 import { rangerMutations } from './mutations/ranger';
 import { participantMutations } from './mutations/participant';
+import { paymentQueries } from './queries/payment';
+import { paymentMutations } from './mutations/payment';
 
 /**
  * Custom scalar resolvers
@@ -92,6 +94,15 @@ const Rally = {
   currentParticipants: (parent: any) => parent.currentParticipants ?? 0,
 };
 
+const MerchOrder = {
+  // Payments for an order (admin visibility). Raw QPay payloads are never exposed here.
+  payments: (parent: any, _args: any, context: any) =>
+    context.prisma.payment.findMany({
+      where: { orderId: parent.id },
+      orderBy: { createdAt: 'desc' },
+    }),
+};
+
 /**
  * Combined Resolvers
  * Merges all domain resolvers with scalars and base resolvers
@@ -104,6 +115,7 @@ export const resolvers = {
   // Type Resolvers
   Tenant,
   Rally,
+  MerchOrder,
 
   // Root Query
   Query: {
@@ -133,6 +145,7 @@ export const resolvers = {
     ...teamQueries,
     ...rangerQueries,
     ...participantQueries,
+    ...paymentQueries,
   },
 
   // Root Mutation
@@ -156,6 +169,7 @@ export const resolvers = {
     ...teamMutations,
     ...rangerMutations,
     ...participantMutations,
+    ...paymentMutations,
   },
 };
 

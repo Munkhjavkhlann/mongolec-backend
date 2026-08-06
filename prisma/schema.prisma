@@ -831,6 +831,7 @@ model MerchOrder {
   currency         String           @default("MNT")
   tenantId         String
   items         MerchOrderItem[]
+  payments      Payment[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -856,10 +857,57 @@ model MerchOrderItem {
 }
 
 enum MerchOrderStatus {
+  AWAITING_PAYMENT
   PENDING
+  PAID
   CONFIRMED
   SHIPPED
   DELIVERED
+  CANCELLED
+  EXPIRED
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  orderId         String
+  order           MerchOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenantId        String
+  provider        String        @default("QPAY")
+
+  senderInvoiceNo String        @unique
+  qpayInvoiceId   String?       @unique
+  qpayPaymentId   String?
+
+  amount          Float
+  currency        String        @default("MNT")
+  paidAmount      Float?
+
+  status          PaymentStatus @default(PENDING)
+
+  qrText          String?
+  qrImage         String?
+  shortUrl        String?
+  deeplinks       Json?
+
+  invoiceResponse Json?
+  callbackPayload Json?
+
+  expiresAt       DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
   CANCELLED
 }
 

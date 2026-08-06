@@ -64,8 +64,8 @@ describe('createMerchOrder', () => {
     expect(order.userId).toBeNull();
     expect(order.subtotal).toBe(200);
     expect(order.total).toBe(200);
-    expect(order.status).toBe('PENDING');
-    expect(order.paymentMethod).toBe('BANK_TRANSFER');
+    expect(order.status).toBe('AWAITING_PAYMENT');
+    expect(order.paymentMethod).toBe('QPAY');
     const createArg = tx.merchOrder.create.mock.calls[0][0].data;
     expect(createArg.items.create[0]).toMatchObject({
       productId: 'prod-1',
@@ -146,28 +146,6 @@ describe('createMerchOrder', () => {
     await expect(
       orderMutations.createMerchOrder({}, { input: validInput }, context)
     ).rejects.toThrow('not found');
-  });
-});
-
-describe('markMerchOrderPaid', () => {
-  it('stamps paymentClaimedAt for a guest', async () => {
-    const { context, prisma } = buildContext();
-    const result = await orderMutations.markMerchOrderPaid({}, { id: 'order-1' }, context);
-    expect(prisma.merchOrder.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 'order-1' },
-        data: expect.objectContaining({ paymentClaimedAt: expect.any(Date) }),
-      })
-    );
-    expect(result.paymentClaimedAt).toBeInstanceOf(Date);
-  });
-
-  it('throws NotFound for a missing order', async () => {
-    const { context, prisma } = buildContext();
-    prisma.merchOrder.findUnique.mockResolvedValueOnce(null);
-    await expect(orderMutations.markMerchOrderPaid({}, { id: 'nope' }, context)).rejects.toThrow(
-      'not found'
-    );
   });
 });
 
