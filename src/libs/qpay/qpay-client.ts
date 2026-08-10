@@ -96,9 +96,11 @@ async function qpayFetch(path: string, init: RequestInit): Promise<unknown> {
   }
 }
 
-export async function getAccessToken(): Promise<string> {
-  const cached = await redisClient.get(TOKEN_CACHE_KEY).catch(() => null);
-  if (cached) return cached;
+export async function getAccessToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    const cached = await redisClient.get(TOKEN_CACHE_KEY).catch(() => null);
+    if (cached) return cached;
+  }
 
   const basic = Buffer.from(`${config.qpay.clientId}:${config.qpay.clientSecret}`).toString(
     'base64'
@@ -108,25 +110,58 @@ export async function getAccessToken(): Promise<string> {
     headers: { 'Content-Type': 'application/json', Authorization: `Basic ${basic}` },
   });
   const parsed = validate<{ access_token: string; expires_in: number }>(tokenSchema, json, 'token');
-  const ttl = Math.max(parsed.expires_in - TOKEN_SAFETY_BUFFER_SECONDS, 30);
+
+  // QPay returns `expires_in` as an ABSOLUTE unix timestamp (seconds), not a
+  // relative duration. Convert to remaining seconds; fall back to treating it as
+  // a duration if it looks small, and clamp to a sane range so a bad value can
+  // never cache a dead token for years.
+  const now = Math.floor(Date.now() / 1000);
+  const remaining = parsed.expires_in > 1_000_000_000 ? parsed.expires_in - now : parsed.expires_in;
+  const ttl = Math.min(Math.max(remaining - TOKEN_SAFETY_BUFFER_SECONDS, 30), 3600);
   await redisClient.set(TOKEN_CACHE_KEY, parsed.access_token, ttl).catch(() => false);
   return parsed.access_token;
 }
 
+/**
+ * Authenticated request to a protected QPay endpoint. If the token has expired
+ * (401), drop the cached token, fetch a fresh one, and retry once — so a stale
+ * cache self-heals instead of surfacing as an "Internal server error".
+ */
+async function authedFetch(path: string, method: string, body?: string): Promise<unknown> {
+  const call = (token: string) =>
+    fetch(`${config.qpay.baseUrl}${path}`, { method, headers: baseHeaders(token), body });
+
+  let res = await call(await getAccessToken());
+  if (res.status === 401) {
+    logger.warn(`QPay ${path} got 401 — refreshing token and retrying`);
+    await redisClient.del(TOKEN_CACHE_KEY).catch(() => 0);
+    res = await call(await getAccessToken(true));
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    logger.error(`QPay ${path} failed: ${res.status}`);
+    throw new Error(`QPay request failed (${res.status}) on ${path}: ${text.slice(0, 300)}`);
+  }
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
 export async function createInvoice(params: CreateInvoiceParams): Promise<QpayInvoiceResponse> {
-  const token = await getAccessToken();
-  const json = await qpayFetch('/v2/invoice', {
-    method: 'POST',
-    headers: baseHeaders(token),
-    body: JSON.stringify({
+  const json = await authedFetch(
+    '/v2/invoice',
+    'POST',
+    JSON.stringify({
       invoice_code: config.qpay.invoiceCode,
       sender_invoice_no: params.senderInvoiceNo,
       invoice_receiver_code: 'terminal',
       invoice_description: params.description,
       amount: params.amount,
       callback_url: params.callbackUrl,
-    }),
-  });
+    })
+  );
   const parsed = validate<{
     invoice_id: string;
     qr_text: string;
@@ -145,16 +180,15 @@ export async function createInvoice(params: CreateInvoiceParams): Promise<QpayIn
 }
 
 export async function checkPayment(invoiceId: string): Promise<QpayPaymentCheckResponse> {
-  const token = await getAccessToken();
-  const json = await qpayFetch('/v2/payment/check', {
-    method: 'POST',
-    headers: baseHeaders(token),
-    body: JSON.stringify({
+  const json = await authedFetch(
+    '/v2/payment/check',
+    'POST',
+    JSON.stringify({
       object_type: 'INVOICE',
       object_id: invoiceId,
       offset: { page_number: 1, page_limit: 100 },
-    }),
-  });
+    })
+  );
   const parsed = validate<{
     count: number;
     paid_amount: number;
@@ -173,6 +207,5 @@ export async function checkPayment(invoiceId: string): Promise<QpayPaymentCheckR
 }
 
 export async function cancelInvoice(invoiceId: string): Promise<void> {
-  const token = await getAccessToken();
-  await qpayFetch(`/v2/invoice/${invoiceId}`, { method: 'DELETE', headers: baseHeaders(token) });
+  await authedFetch(`/v2/invoice/${invoiceId}`, 'DELETE');
 }
