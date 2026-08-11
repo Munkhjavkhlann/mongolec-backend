@@ -24,10 +24,22 @@ export interface QpayInvoiceResponse {
   raw: unknown;
 }
 
+export interface QpayPaymentRow {
+  paymentId: string;
+  paymentStatus: string;
+  paymentAmount: number;
+  fee: number;
+  netAmount: number;
+  wallet?: string;
+  paymentType?: string;
+  settlementStatus?: string;
+  ebarimtCustomerNo?: string;
+}
+
 export interface QpayPaymentCheckResponse {
   count: number;
   paidAmount: number;
-  rows: Array<{ paymentId: string; paymentStatus: string; paymentAmount: number }>;
+  rows: QpayPaymentRow[];
   raw: unknown;
 }
 
@@ -192,16 +204,40 @@ export async function checkPayment(invoiceId: string): Promise<QpayPaymentCheckR
   const parsed = validate<{
     count: number;
     paid_amount: number;
-    rows: Array<{ payment_id: string; payment_status: string; payment_amount?: string | number }>;
+    rows: Array<{
+      payment_id: string;
+      payment_status: string;
+      payment_amount?: string | number;
+      trx_fee?: string | number;
+      payment_wallet?: string;
+      payment_type?: string;
+      ebarimt_customer_no?: string;
+      p2p_transactions?: Array<{ amount?: string | number; settlement_status?: string }>;
+    }>;
   }>(paymentCheckSchema, json, 'payment/check');
   return {
     count: parsed.count,
     paidAmount: parsed.paid_amount,
-    rows: parsed.rows.map(r => ({
-      paymentId: r.payment_id,
-      paymentStatus: r.payment_status,
-      paymentAmount: Number(r.payment_amount ?? 0),
-    })),
+    rows: parsed.rows.map(r => {
+      const amount = Number(r.payment_amount ?? 0);
+      const fee = Number(r.trx_fee ?? 0);
+      // The merchant settlement is the largest p2p transaction (the fee is a
+      // separate, smaller one); use it for the settlement status.
+      const settlement = (r.p2p_transactions ?? [])
+        .slice()
+        .sort((a, b) => Number(b.amount ?? 0) - Number(a.amount ?? 0))[0];
+      return {
+        paymentId: r.payment_id,
+        paymentStatus: r.payment_status,
+        paymentAmount: amount,
+        fee,
+        netAmount: Math.max(amount - fee, 0),
+        wallet: r.payment_wallet,
+        paymentType: r.payment_type,
+        settlementStatus: settlement?.settlement_status,
+        ebarimtCustomerNo: r.ebarimt_customer_no,
+      };
+    }),
     raw: json,
   };
 }
