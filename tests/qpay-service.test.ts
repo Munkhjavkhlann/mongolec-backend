@@ -87,6 +87,26 @@ describe('qpay-service', () => {
     );
   });
 
+  it('confirmPayment decrements stock for paid items', async () => {
+    (client.checkPayment as jest.Mock).mockResolvedValue({
+      count: 1,
+      paidAmount: 1000,
+      rows: [{ paymentId: 'p9', paymentStatus: 'PAID', paymentAmount: 1000 }],
+      raw: {},
+    });
+    const prisma = makePrisma();
+    prisma.payment.findFirst.mockResolvedValue(prisma._payment);
+    prisma.merchOrderItem.findMany.mockResolvedValue([{ productId: 'prod-1', quantity: 3 }]);
+    prisma.merchProduct.findUnique = jest
+      .fn()
+      .mockResolvedValue({ id: 'prod-1', trackInventory: true });
+    await confirmPayment(prisma, 'order-1');
+    expect(prisma.merchProduct.update).toHaveBeenCalledWith({
+      where: { id: 'prod-1' },
+      data: { inventory: { decrement: 3 } },
+    });
+  });
+
   it('confirmPayment is a no-op when QPay reports unpaid', async () => {
     (client.checkPayment as jest.Mock).mockResolvedValue({
       count: 0,

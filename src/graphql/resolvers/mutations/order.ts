@@ -95,12 +95,10 @@ export const createMerchOrder = async (
           quantity: item.quantity,
         });
 
-        if (product.trackInventory) {
-          await tx.merchProduct.update({
-            where: { id: product.id },
-            data: { inventory: { decrement: item.quantity } },
-          });
-        }
+        // Inventory is NOT decremented here. In the QPay pay-first flow the
+        // order is created as AWAITING_PAYMENT; stock is only reduced once the
+        // payment is confirmed (see confirmPayment). This keeps abandoned /
+        // unpaid orders from holding inventory.
       }
 
       const total = subtotal;
