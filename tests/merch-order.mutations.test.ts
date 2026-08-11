@@ -86,13 +86,11 @@ describe('createMerchOrder', () => {
     expect(createArg.tenantId).toBe('tenant-from-product');
   });
 
-  it('decrements inventory by the ordered quantity', async () => {
+  it('does NOT decrement inventory at order creation (pay-first flow)', async () => {
     const { context, tx } = buildContext();
     await orderMutations.createMerchOrder({}, { input: validInput }, context);
-    expect(tx.merchProduct.update).toHaveBeenCalledWith({
-      where: { id: 'prod-1' },
-      data: { inventory: { decrement: 2 } },
-    });
+    // Stock is only reduced on payment confirmation, not when the order is placed.
+    expect(tx.merchProduct.update).not.toHaveBeenCalled();
   });
 
   it('defaults deliveryMethod to DELIVERY', async () => {

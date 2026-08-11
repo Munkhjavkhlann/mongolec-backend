@@ -130,7 +130,24 @@ export async function confirmPayment(prisma: any, orderId: string): Promise<void
     },
   });
   await prisma.merchOrder.update({ where: { id: orderId }, data: { status: 'PAID' } });
-  logger.info(`Order ${orderId} confirmed PAID (payment ${paidRow.paymentId})`);
+
+  // Deduct stock now that the order is paid. This runs exactly once because the
+  // block above only executes on the PENDING -> PAID transition (a repeated
+  // callback finds no PENDING payment and returns early).
+  const items = await prisma.merchOrderItem.findMany({ where: { orderId } });
+  for (const item of items) {
+    const product = await prisma.merchProduct.findUnique({ where: { id: item.productId } });
+    if (product?.trackInventory) {
+      await prisma.merchProduct
+        .update({
+          where: { id: item.productId },
+          data: { inventory: { decrement: item.quantity } },
+        })
+        .catch(e => logger.warn(`inventory decrement failed for ${item.productId}: ${String(e)}`));
+    }
+  }
+
+  logger.info(`Order ${orderId} confirmed PAID (payment ${paidRow.paymentId}); stock deducted`);
 }
 
 export async function expireIfLapsed(prisma: any, orderId: string): Promise<void> {
@@ -146,13 +163,8 @@ export async function expireIfLapsed(prisma: any, orderId: string): Promise<void
     );
   }
 
-  // Restore inventory for tracked products on this order.
-  const items = await prisma.merchOrderItem.findMany({ where: { orderId } });
-  for (const item of items) {
-    await prisma.merchProduct
-      .update({ where: { id: item.productId }, data: { inventory: { increment: item.quantity } } })
-      .catch(() => undefined);
-  }
+  // No inventory to restore: stock is only deducted on PAID (confirmPayment),
+  // so an expiring unpaid order never touched inventory.
 
   await prisma.payment.update({ where: { id: payment.id }, data: { status: 'EXPIRED' } });
   await prisma.merchOrder.update({ where: { id: orderId }, data: { status: 'EXPIRED' } });
