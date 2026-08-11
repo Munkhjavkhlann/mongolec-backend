@@ -882,6 +882,14 @@ model Payment {
   currency        String        @default("MNT")
   paidAmount      Float?
 
+  // Captured from the QPay payment/check response on confirmation.
+  fee               Float?  // QPay transaction fee (≈1%)
+  netAmount         Float?  // paidAmount - fee (what the merchant receives)
+  paymentWallet     String? // bank app used, e.g. "Хас банк апп"
+  paymentType       String? // P2P (QR/bank) or CARD
+  settlementStatus  String? // e.g. SETTLED
+  ebarimtCustomerNo String? // customer tax register for e-barimt
+
   status          PaymentStatus @default(PENDING)
 
   qrText          String?

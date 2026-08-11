@@ -13,6 +13,13 @@ export const paymentSchema = gql`
     status: String!
     amount: Float!
     currency: String!
+    paidAmount: Float
+    fee: Float
+    netAmount: Float
+    paymentWallet: String
+    paymentType: String
+    settlementStatus: String
+    ebarimtCustomerNo: String
     qpayInvoiceId: String
     qpayPaymentId: String
     paidAt: DateTime
