@@ -645,6 +645,7 @@ model MerchCategory {
   description Json? // {"en": "Description", "mn": "Тайлбар"}
   color       String? // Hex color for UI
   icon        String? // Icon name
+  image       String? // Optional dedicated cover image URL for the category card
 
   // Hierarchy support
   parentId String?
