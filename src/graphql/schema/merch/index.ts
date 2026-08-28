@@ -73,6 +73,7 @@ export const merchSchema = gql`
     description: JSON
     color: String
     icon: String
+    image: String
     createdAt: DateTime!
     updatedAt: DateTime!
   }
