@@ -7,6 +7,7 @@ import { tenantQueries } from './queries/tenant';
 import { newsQueries } from './queries/news';
 import { merchQueries } from './queries/merch';
 import { orderQueries } from './queries/order';
+import { discountQueries } from './queries/discount';
 import { contentQueries } from './queries/content';
 import { rallyQueries } from './queries/rally';
 import { applicationQueries } from './queries/application';
@@ -25,6 +26,7 @@ import { userMutations } from './mutations/user';
 import { newsMutations } from './mutations/news';
 import { merchMutations } from './mutations/merch';
 import { orderMutations } from './mutations/order';
+import { discountMutations } from './mutations/discount';
 import { contentMutations } from './mutations/content';
 import { tenantMutations } from './mutations/tenant';
 import { uploadResolvers } from './mutations/upload';
@@ -134,6 +136,7 @@ export const resolvers = {
     ...newsQueries,
     ...merchQueries,
     ...orderQueries,
+    ...discountQueries,
     ...contentQueries,
     ...rallyQueries,
     ...applicationQueries,
@@ -157,6 +160,7 @@ export const resolvers = {
     ...newsMutations,
     ...merchMutations, // Includes variant mutations
     ...orderMutations, // Guest createMerchOrder + admin status update
+    ...discountMutations,
     ...contentMutations,
     ...uploadResolvers.Mutation,
     ...rallyMutations,
