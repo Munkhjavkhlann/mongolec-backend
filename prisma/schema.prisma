@@ -43,6 +43,7 @@ model Tenant {
   newsArticles    NewsArticle[]
   merchCategories MerchCategory[]
   merchProducts   MerchProduct[]
+  merchDiscounts  MerchDiscount[]
 
   // Rally for Rangers
   rallies           Rally[]
@@ -716,6 +717,9 @@ model MerchProduct {
   // Variant relations (named productVariants to avoid conflict with JSON column)
   productVariants MerchVariant[] @relation("ProductVariants")
 
+  // Discounts (many-to-many; a product can be part of multiple discounts)
+  discounts MerchDiscount[] @relation("MerchProductDiscounts")
+
   // SEO & Marketing
   metaTitle       Json? // {"en": "SEO Title", "mn": "SEO Гарчиг"}
   metaDescription Json? // {"en": "SEO Description", "mn": "SEO Тайлбар"}
@@ -813,6 +817,32 @@ enum MerchProductStatus {
 // MERCH ORDERS
 // ================================
 
+enum MerchDiscountType {
+  PERCENT
+  AMOUNT
+}
+
+model MerchDiscount {
+  id        String            @id @default(cuid())
+  name      String
+  type      MerchDiscountType
+  value     Float
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean           @default(true)
+
+  tenantId String
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products MerchProduct[] @relation("MerchProductDiscounts")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([tenantId, isActive, startDate, endDate])
+  @@map("merch_discounts")
+}
+
 model MerchOrder {
   id            String           @id @default(cuid())
   orderNumber   String           @unique
@@ -827,6 +857,7 @@ model MerchOrder {
   deliveryMethod   String           @default("DELIVERY")
   paymentClaimedAt DateTime?
   subtotal         Float
+  discountTotal    Float            @default(0)
   total            Float
   currency         String           @default("MNT")
   tenantId         String
@@ -849,8 +880,9 @@ model MerchOrderItem {
   image       String?
   variantId   String?
   variantName String?
-  unitPrice   Float
-  quantity    Int
+  unitPrice         Float
+  originalUnitPrice Float?
+  quantity          Int
 
   @@index([orderId])
   @@map("merch_order_items")
