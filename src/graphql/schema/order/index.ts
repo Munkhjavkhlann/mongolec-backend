@@ -75,8 +75,23 @@ export const orderSchema = gql`
     getMerchOrderById(id: ID!): MerchOrder
   }
 
+  type MerchOrderExport {
+    filename: String!
+    mimeType: String!
+    base64: String!
+    count: Int!
+  }
+
+  input ExportMerchOrdersInput {
+    orderIds: [ID!]
+    startDate: DateTime
+    endDate: DateTime
+    tenantId: String
+  }
+
   extend type Mutation {
     createMerchOrder(input: CreateMerchOrderInput!): MerchOrder!
     updateMerchOrderStatus(id: ID!, status: String!): MerchOrder!
+    exportMerchOrders(input: ExportMerchOrdersInput!): MerchOrderExport!
   }
 `;
