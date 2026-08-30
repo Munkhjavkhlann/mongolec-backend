@@ -4,6 +4,7 @@ import { generateRandomString } from '@/utils/index';
 import { getLocalizedContent } from '@/libs/localization';
 import { createLogger } from '@/utils/logger';
 import { authenticated, withPermission } from '@/graphql/decorators/auth';
+import { resolveActiveDiscount } from '@/libs/discounts';
 
 const VALID_ORDER_STATUSES = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 const VALID_DELIVERY_METHODS = ['DELIVERY', 'PICKUP'];
@@ -63,13 +64,17 @@ export const createMerchOrder = async (
   try {
     const order = await (context.prisma as any).$transaction(async (tx: any) => {
       let subtotal = 0;
+      let discountTotal = 0;
       const itemsData: any[] = [];
 
       for (const item of input.items) {
         if (!item.quantity || item.quantity < 1) {
           throw new ValidationError('Item quantity must be at least 1');
         }
-        const product = await tx.merchProduct.findUnique({ where: { id: item.productId } });
+        const product = await tx.merchProduct.findUnique({
+          where: { id: item.productId },
+          include: { discounts: { where: { deletedAt: null, isActive: true } } },
+        });
         if (!product || product.deletedAt) throw new NotFoundError('Merchandise product');
         if (product.status !== 'ACTIVE') {
           throw new ValidationError(`Product is not available: ${item.productId}`);
@@ -83,8 +88,15 @@ export const createMerchOrder = async (
           throw new ValidationError(`Insufficient stock for product: ${item.productId}`);
         }
 
-        const unitPrice = product.price;
+        const basePrice = product.price;
+        const discount = resolveActiveDiscount(
+          basePrice,
+          (product as any).discounts || [],
+          new Date()
+        );
+        const unitPrice = discount ? discount.discountedPrice : basePrice;
         subtotal += unitPrice * item.quantity;
+        discountTotal += (basePrice - unitPrice) * item.quantity;
         itemsData.push({
           productId: product.id,
           name: getLocalizedContent(product.name, 'en') || '',
@@ -92,6 +104,7 @@ export const createMerchOrder = async (
           variantId: item.variantId ?? null,
           variantName: item.variantName ?? null,
           unitPrice,
+          originalUnitPrice: basePrice,
           quantity: item.quantity,
         });
 
@@ -118,6 +131,7 @@ export const createMerchOrder = async (
           paymentMethod: 'QPAY',
           deliveryMethod,
           subtotal,
+          discountTotal,
           total,
           currency: input.currency ?? 'MNT',
           tenantId,
