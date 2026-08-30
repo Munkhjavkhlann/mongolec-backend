@@ -27,6 +27,7 @@ import { newsMutations } from './mutations/news';
 import { merchMutations } from './mutations/merch';
 import { orderMutations } from './mutations/order';
 import { discountMutations } from './mutations/discount';
+import { orderExportMutations } from './mutations/order-export';
 import { contentMutations } from './mutations/content';
 import { tenantMutations } from './mutations/tenant';
 import { uploadResolvers } from './mutations/upload';
@@ -161,6 +162,7 @@ export const resolvers = {
     ...merchMutations, // Includes variant mutations
     ...orderMutations, // Guest createMerchOrder + admin status update
     ...discountMutations,
+    ...orderExportMutations,
     ...contentMutations,
     ...uploadResolvers.Mutation,
     ...rallyMutations,
